@@ -1,0 +1,4 @@
+# file: /Users/fuaadabdullah/ForgeMonorepo/ForgeTM/apps/backend/src/forge/config.py
+# hypothesis_version: 6.142.3
+
+[8000, '.env', '0.1.0', '127.0.0.1', 'forgetm-backend', 'ignore', 'utf-8']

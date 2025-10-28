@@ -1,0 +1,54 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "timezone": "UTC",
+  "schedule": ["before 6am on Monday"],
+  "packageRules": [
+    {
+      "description": "Group all non-major dependencies together",
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "all non-major dependencies",
+      "groupSlug": "all-minor-patch"
+    },
+    {
+      "description": "Automerge non-major updates if tests pass",
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "TypeScript gets its own PR",
+      "matchPackageNames": ["typescript"],
+      "groupName": "typescript",
+      "automerge": false
+    },
+    {
+      "description": "Monorepo grouping for common ecosystems",
+      "matchSourceUrlPrefixes": [
+        "https://github.com/biomejs/biome",
+        "https://github.com/vitest-dev/vitest",
+        "https://github.com/changesets/changesets"
+      ],
+      "groupName": "{{sourceUrl}}",
+      "automerge": false
+    },
+    {
+      "description": "GitHub Actions updates separately",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "automerge": true,
+      "schedule": ["before 6am on Monday"]
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on Monday"]
+  },
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "assignees": ["@fuaadabdullah"]
+  },
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2
+}

@@ -1,0 +1,82 @@
+name: Frontend DX CI
+
+on:
+  push:
+    paths:
+      - 'ForgeTM/apps/frontend/**'
+      - '.github/workflows/frontend-dx-ci.yml'
+  pull_request:
+    paths:
+      - 'ForgeTM/apps/frontend/**'
+      - '.github/workflows/frontend-dx-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'ForgeTM/apps/frontend/pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ForgeTM/apps/frontend
+
+      - name: Run linting
+        run: pnpm lint
+        working-directory: ForgeTM/apps/frontend
+
+      - name: Run unit tests
+        run: pnpm test
+        working-directory: ForgeTM/apps/frontend
+
+      - name: Run Playwright tests
+        run: pnpm test:e2e
+        working-directory: ForgeTM/apps/frontend
+
+      - name: Run Pact contract tests
+        run: pnpm test -- contract.spec.ts
+        working-directory: ForgeTM/apps/frontend
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            ForgeTM/apps/frontend/test-results/
+            ForgeTM/apps/frontend/playwright-report/
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'ForgeTM/apps/frontend/pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ForgeTM/apps/frontend
+
+      - name: Build Next.js app
+        run: pnpm build
+        working-directory: ForgeTM/apps/frontend
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build
+          path: ForgeTM/apps/frontend/.next/

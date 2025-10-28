@@ -1,0 +1,15 @@
+{
+  "folders": [
+    { "path": "." },
+    { "path": "GoblinOS" },
+    { "path": "ForgeTM" },
+    { "path": "Obsidian" }
+  ],
+  "settings": {
+    "files.exclude": { "**/.turbo": true, "**/dist": true },
+    "typescript.tsdk": "ForgeTM/apps/frontend/node_modules/typescript/lib",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "python.analysis.typeCheckingMode": "standard",
+    "chatgpt.commentCodeLensEnabled": true
+  }
+}

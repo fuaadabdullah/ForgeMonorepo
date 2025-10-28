@@ -1,0 +1,139 @@
+#!/usr/bin/env node
+
+/**
+ * @goblinos/forge-guild
+ *
+ * Smithy CLI - Dependency Management & Code Quality Tool
+ *
+ * Handles Python dependency management, Biome operations, and project scaffolding
+ */
+
+import { execSync } from 'child_process'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Simple CLI implementation using built-in child_process
+const args = process.argv.slice(2)
+const command = args[0]
+
+function runCommand(cmd, options = {}) {
+  try {
+    const result = execSync(cmd, {
+      cwd: path.resolve(__dirname, '../../../..'), // Monorepo root
+      stdio: 'inherit',
+      ...options
+    })
+    return result
+  } catch (error) {
+    console.error(`❌ Command failed: ${cmd}`)
+    console.error(error.message)
+    process.exit(1)
+  }
+}
+
+console.log('🔨 Smithy CLI - Dependency Management & Code Quality Tool')
+
+if (!command || command === '--help' || command === '-h') {
+  console.log(`
+Usage: smithy <command> [options]
+
+Commands:
+  deps update          Update all Python dependencies
+  deps resolve         Resolve dependency conflicts
+  deps audit           Security audit of dependencies
+  deps sync            Sync environment with lockfile
+
+  biome-check          Check Biome linting
+  biome-fix            Auto-fix Biome issues
+  biome-format         Format code with Biome
+  biome-imports        Organize imports with Biome
+  secrets ...          Manage API keys via smithy automation
+
+Examples:
+  smithy deps update
+  smithy biome-check
+  smithy deps audit
+`)
+  process.exit(0)
+}
+
+if (command === 'deps') {
+  const subcommand = args[1]
+  const backendPath = path.resolve(__dirname, '../../../../../ForgeTM/apps/backend')
+
+  switch (subcommand) {
+    case 'update':
+      console.log('🔄 Updating Python dependencies...')
+      runCommand(`cd "${backendPath}" && pip install --upgrade -e .`)
+      console.log('✅ Dependencies updated successfully')
+      break
+
+    case 'resolve':
+      console.log('🔧 Resolving dependency conflicts...')
+      runCommand(`cd "${backendPath}" && pip install --dry-run -e .`)
+      console.log('✅ Dependencies resolved successfully')
+      break
+
+    case 'audit':
+      console.log('🔒 Checking for dependency issues...')
+      runCommand(`cd "${backendPath}" && pip check`)
+      console.log('✅ Dependency check completed')
+      break
+
+    case 'sync':
+      console.log('🔄 Syncing environment with lockfile...')
+      runCommand(`cd "${backendPath}" && pip install -e .`)
+      console.log('✅ Environment synced successfully')
+      break
+
+    default:
+      console.error(`❌ Unknown deps subcommand: ${subcommand}`)
+      console.log('Available: update, resolve, audit, sync')
+      process.exit(1)
+  }
+} else if (command.startsWith('biome-')) {
+  const subcommand = command.replace('biome-', '')
+  const goblinPath = path.resolve(__dirname, '../../..') // GoblinOS root
+
+  switch (subcommand) {
+    case 'check':
+      console.log('🔍 Checking Biome linting...')
+      runCommand(`cd "${goblinPath}" && pnpm biome check .`)
+      console.log('✅ Biome check passed')
+      break
+
+    case 'fix':
+      console.log('🔧 Auto-fixing Biome issues...')
+      runCommand(`cd "${goblinPath}" && pnpm biome check --write .`)
+      console.log('✅ Biome fixes applied')
+      break
+
+    case 'format':
+      console.log('🎨 Formatting code with Biome...')
+      runCommand(`cd "${goblinPath}" && pnpm biome format --write .`)
+      console.log('✅ Code formatted')
+      break
+
+    case 'imports':
+      console.log('📦 Organizing imports with Biome...')
+      runCommand(`cd "${goblinPath}" && pnpm biome check --write --organize-imports .`)
+      console.log('✅ Imports organized')
+      break
+
+    default:
+      console.error(`❌ Unknown biome subcommand: ${subcommand}`)
+      console.log('Available: check, fix, format, imports')
+      process.exit(1)
+  }
+} else if (command === 'secrets') {
+  const backendPath = path.resolve(__dirname, '../../../../../GoblinOS/packages/goblins/forge-smithy')
+  const forwarded = args.slice(1).map((arg) => `"${arg.replace(/"/g, '\\"')}"`).join(' ')
+  const cmd = `cd "${backendPath}" && python -m smithy.automation.cli secrets ${forwarded}`.trim()
+  runCommand(cmd)
+} else {
+  console.error(`❌ Unknown command: ${command}`)
+  console.log('Run "smithy --help" for available commands')
+  process.exit(1)
+}

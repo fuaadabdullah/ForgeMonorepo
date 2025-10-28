@@ -1,0 +1,151 @@
+name: Argo CD Sync
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/**'
+    paths:
+      - 'infra/charts/**'
+      - 'infra/overlays/**'
+      - 'infra/secrets/**'
+      - 'infra/gitops/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to sync'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      force:
+        description: 'Force sync (ignore diff warnings)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  validate-manifests:
+    name: Validate Kubernetes Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Setup SOPS
+        run: |
+          curl -LO https://github.com/getsops/sops/releases/download/v3.9.0/sops-v3.9.0.linux.amd64
+          chmod +x sops-v3.9.0.linux.amd64
+          sudo mv sops-v3.9.0.linux.amd64 /usr/local/bin/sops
+
+      - name: Setup age
+        run: |
+          curl -LO https://github.com/FiloSottile/age/releases/download/v1.2.0/age-v1.2.0-linux-amd64.tar.gz
+          tar xf age-v1.2.0-linux-amd64.tar.gz
+          sudo mv age/age /usr/local/bin/
+          sudo mv age/age-keygen /usr/local/bin/
+
+      - name: Validate dev manifests
+        if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'dev'
+        run: |
+          cd infra/overlays/dev
+          kustomize build . --enable-alpha-plugins --enable-exec > /tmp/dev-manifests.yaml
+          echo "✅ Dev manifests validated"
+
+      - name: Validate prod manifests
+        if: startsWith(github.ref, 'refs/heads/release/') || github.event.inputs.environment == 'prod'
+        run: |
+          cd infra/overlays/prod
+          kustomize build . --enable-alpha-plugins --enable-exec > /tmp/prod-manifests.yaml
+          echo "✅ Prod manifests validated"
+
+      - name: Upload manifests as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-manifests
+          path: /tmp/*-manifests.yaml
+          retention-days: 7
+
+  sync-dev:
+    name: Sync Dev Environment
+    needs: validate-manifests
+    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'dev'
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+      url: https://argocd.example.com/applications/overmind-dev
+    steps:
+      - name: Setup Argo CD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/
+
+      - name: Login to Argo CD
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          argocd login $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN --grpc-web
+
+      - name: Sync overmind-dev
+        run: |
+          argocd app sync overmind-dev --async
+          argocd app wait overmind-dev --health --timeout 300
+
+      - name: Get sync status
+        if: always()
+        run: |
+          argocd app get overmind-dev
+
+  sync-prod:
+    name: Sync Production Environment
+    needs: validate-manifests
+    if: startsWith(github.ref, 'refs/heads/release/') || github.event.inputs.environment == 'prod'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://argocd.example.com/applications/overmind-prod
+    steps:
+      - name: Setup Argo CD CLI
+        run: |
+          curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x argocd
+          sudo mv argocd /usr/local/bin/
+
+      - name: Login to Argo CD
+        env:
+          ARGOCD_SERVER: ${{ secrets.ARGOCD_SERVER }}
+          ARGOCD_AUTH_TOKEN: ${{ secrets.ARGOCD_AUTH_TOKEN }}
+        run: |
+          argocd login $ARGOCD_SERVER --auth-token $ARGOCD_AUTH_TOKEN --grpc-web
+
+      - name: Sync overmind-prod
+        run: |
+          argocd app sync overmind-prod \
+            ${{ github.event.inputs.force && '--force' || '' }} \
+            --async
+          argocd app wait overmind-prod --health --timeout 600
+
+      - name: Get sync status
+        if: always()
+        run: |
+          argocd app get overmind-prod
+
+      - name: Comment on PR (if applicable)
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ Production deployment successful! [View in Argo CD](https://argocd.example.com/applications/overmind-prod)'
+            })

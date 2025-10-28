@@ -1,0 +1,43 @@
+name: smithy-maintenance
+on:
+  push:
+    paths:
+      - 'packages/goblins/forge-guild/**'
+  pull_request:
+    paths:
+      - 'packages/goblins/forge-guild/**'
+  workflow_dispatch:
+
+jobs:
+  validate-smithy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install workspace deps (smithy only)
+        run: pnpm -w --filter @goblinos/forge-guild install
+      - name: Run smithy env validation
+        run: bash GoblinOS/packages/goblins/forge-guild/scripts/validate_envs.sh
+      - name: Run smithy tests (unit + smoke)
+        run: pnpm -w --filter @goblinos/forge-guild test
+  auto-pr:
+    needs: validate-smithy
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create auto-fix PR (smithy-only)
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(smithy): auto-fix smithy maintenance [auto]"
+          title: "chore(smithy): auto-fix smithy maintenance"
+          body: |
+            Automated smithy-only maintenance PR. Changes limited to GoblinOS/packages/goblins/forge-guild.
+          branch: smithy/auto-fixes
+          labels: area/smithy

@@ -1,0 +1,95 @@
+name: Reusable Lint Workflow
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: 'Working directory for linting'
+        required: false
+        type: string
+        default: '.'
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        type: string
+        default: '22'
+      pnpm-version:
+        description: 'pnpm version to use'
+        required: false
+        type: string
+        default: '9'
+      run-biome:
+        description: 'Run Biome linter'
+        required: false
+        type: boolean
+        default: true
+      run-prettier:
+        description: 'Run Prettier check'
+        required: false
+        type: boolean
+        default: false
+      run-python:
+        description: 'Run Python linters (Ruff)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        if: inputs.run-biome || inputs.run-prettier
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - name: Setup Node.js
+        if: inputs.run-biome || inputs.run-prettier
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        if: inputs.run-biome || inputs.run-prettier
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Biome
+        if: inputs.run-biome
+        working-directory: ${{ inputs.working-directory }}
+        run: pnpm lint
+
+      - name: Run Prettier
+        if: inputs.run-prettier
+        working-directory: ${{ inputs.working-directory }}
+        run: pnpm prettier --check .
+
+      - name: Setup uv
+        if: inputs.run-python
+        uses: astral-sh/setup-uv@v1
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        if: inputs.run-python
+        working-directory: ${{ inputs.working-directory }}
+        run: uv sync --frozen
+
+      - name: Run Ruff
+        if: inputs.run-python
+        working-directory: ${{ inputs.working-directory }}
+        run: uv run ruff check .
+
+      - name: Run MyPy
+        if: inputs.run-python
+        working-directory: ${{ inputs.working-directory }}
+        continue-on-error: true
+        run: uv run mypy . --strict

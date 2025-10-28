@@ -1,0 +1,74 @@
+# Lefthook configuration
+# Fast, parallel git hooks for GoblinOS monorepo with world-class Biome integration
+
+pre-commit:
+  parallel: true
+  commands:
+    biome-check:
+      glob: "*.{ts,js,json,css,md}"
+      run: pnpm biome check --no-errors-on-unmatched --files-ignore-unknown
+      stage_fixed: true
+
+    biome-format:
+      glob: "*.{ts,js,json,css,md}"
+      run: pnpm biome format --write --no-errors-on-unmatched --files-ignore-unknown
+      stage_fixed: true
+
+    biome-imports:
+      glob: "*.{ts,js}"
+      run: pnpm biome check --organize-imports-enabled=true --linter-enabled=false --formatter-enabled=false --no-errors-on-unmatched --files-ignore-unknown
+      stage_fixed: true
+
+    format:
+      glob: "*.{ts,js,json,md}"
+      run: pnpm format
+      stage_fixed: true
+
+    lint:
+      glob: "*.{ts,js}"
+      run: pnpm lint
+
+    types:
+      glob: "*.{ts}"
+      run: pnpm check
+
+pre-push:
+  parallel: true
+  commands:
+    biome-full:
+      run: pnpm biome check . --verbose
+
+    test:
+      run: pnpm test
+
+    deps:
+      run: pnpm deps:check
+
+    clone:
+      run: pnpm clone:check
+
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        # Enhanced conventional commits check with Biome-style validation
+        MSG=$(cat {1})
+        if ! echo "$MSG" | grep -qE '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?!?: .{1,}'; then
+          echo "❌ Commit message must follow Conventional Commits:"
+          echo "   type(scope): description"
+          echo "   Examples:"
+          echo "     feat(cli): add new command"
+          echo "     fix(brain): resolve memory leak"
+          echo "     style: format code with Biome"
+          exit 1
+        fi
+
+post-commit:
+  commands:
+    biome-cache-cleanup:
+      run: |
+        # Clean up Biome cache periodically to prevent bloat
+        if [ $((RANDOM % 10)) -eq 0 ]; then
+          echo "🧹 Cleaning Biome cache..."
+          rm -rf node_modules/.cache/biome
+        fi

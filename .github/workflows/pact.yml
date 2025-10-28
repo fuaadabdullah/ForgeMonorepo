@@ -1,0 +1,161 @@
+name: Pact Contract Testing
+
+on:
+  pull_request:
+    paths:
+      - 'GoblinOS/packages/goblins/overmind/**'
+      - '.github/workflows/pact.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'GoblinOS/packages/goblins/overmind/**'
+
+env:
+  PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
+  PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+
+jobs:
+  consumer-tests:
+    name: Bridge Consumer Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: GoblinOS/packages/goblins/overmind
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+        working-directory: GoblinOS
+
+      - name: Run Pact consumer tests
+        run: pnpm test pact/consumer/bridge.pact.test.ts
+
+      - name: Upload pact files
+        uses: actions/upload-artifact@v4
+        with:
+          name: pacts
+          path: GoblinOS/packages/goblins/overmind/pact/pacts/*.json
+          retention-days: 30
+
+      - name: Publish pacts to broker
+        if: github.ref == 'refs/heads/main' && env.PACT_BROKER_URL != ''
+        run: |
+          npx pact-broker publish \
+            pact/pacts \
+            --consumer-app-version=${{ github.sha }} \
+            --branch=main \
+            --broker-base-url=${{ env.PACT_BROKER_URL }} \
+            --broker-token=${{ env.PACT_BROKER_TOKEN }}
+
+  provider-tests:
+    name: API Provider Tests
+    runs-on: ubuntu-latest
+    needs: consumer-tests
+    if: env.PACT_BROKER_URL != '' || github.event_name == 'pull_request'
+    defaults:
+      run:
+        working-directory: GoblinOS/packages/goblins/overmind
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r api/requirements.txt
+          pip install pact-python pytest httpx
+
+      - name: Download pact files (PR only)
+        if: github.event_name == 'pull_request'
+        uses: actions/download-artifact@v4
+        with:
+          name: pacts
+          path: GoblinOS/packages/goblins/overmind/pact/pacts
+
+      - name: Start API server
+        run: |
+          cd api
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+          curl http://localhost:8000/health
+
+      - name: Run Pact provider tests
+        run: pytest pact/provider/test_api_provider.py -v
+        env:
+          PROVIDER_URL: http://localhost:8000
+          GIT_COMMIT: ${{ github.sha }}
+
+      - name: Publish verification results
+        if: github.ref == 'refs/heads/main' && env.PACT_BROKER_URL != ''
+        run: echo "Verification results published via pact-python"
+
+  can-i-deploy:
+    name: Check Deployment Compatibility
+    runs-on: ubuntu-latest
+    needs: [consumer-tests, provider-tests]
+    if: github.ref == 'refs/heads/main' && env.PACT_BROKER_URL != ''
+
+    steps:
+      - name: Setup Node.js (for pact-broker CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pact-broker CLI
+        run: npm install -g @pact-foundation/pact-node
+
+      - name: Can I deploy Bridge?
+        run: |
+          npx pact-broker can-i-deploy \
+            --pacticipant=overmind-bridge \
+            --version=${{ github.sha }} \
+            --to-environment=production \
+            --broker-base-url=${{ env.PACT_BROKER_URL }} \
+            --broker-token=${{ env.PACT_BROKER_TOKEN }} \
+            --retry-while-unknown=6 \
+            --retry-interval=10
+
+      - name: Can I deploy API?
+        run: |
+          npx pact-broker can-i-deploy \
+            --pacticipant=overmind-api \
+            --version=${{ github.sha }} \
+            --to-environment=production \
+            --broker-base-url=${{ env.PACT_BROKER_URL }} \
+            --broker-token=${{ env.PACT_BROKER_TOKEN }} \
+            --retry-while-unknown=6 \
+            --retry-interval=10
+
+      - name: Record deployment (production)
+        if: success()
+        run: |
+          npx pact-broker record-deployment \
+            --pacticipant=overmind-bridge \
+            --version=${{ github.sha }} \
+            --environment=production \
+            --broker-base-url=${{ env.PACT_BROKER_URL }} \
+            --broker-token=${{ env.PACT_BROKER_TOKEN }}
+
+          npx pact-broker record-deployment \
+            --pacticipant=overmind-api \
+            --version=${{ github.sha }} \
+            --environment=production \
+            --broker-base-url=${{ env.PACT_BROKER_URL }} \
+            --broker-token=${{ env.PACT_BROKER_TOKEN }}

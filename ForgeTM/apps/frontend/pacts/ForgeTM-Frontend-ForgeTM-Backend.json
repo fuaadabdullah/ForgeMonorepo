@@ -1,0 +1,61 @@
+{
+  "consumer": {
+    "name": "ForgeTM-Frontend"
+  },
+  "interactions": [
+    {
+      "description": "a request for hello message",
+      "providerStates": [
+        {
+          "name": "the backend is running"
+        }
+      ],
+      "request": {
+        "body": {
+          "name": "World"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/trpc/hello"
+      },
+      "response": {
+        "body": {
+          "message": "Hello World!"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "16.0.2"
+    },
+    "pactRust": {
+      "ffi": "0.4.28",
+      "models": "1.3.5"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "ForgeTM-Backend"
+  }
+}

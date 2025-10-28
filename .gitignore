@@ -1,0 +1,27 @@
+# node
+**/node_modules/
+**/.turbo/
+**/.vite/
+**/dist/
+
+# logs
+**/*.log
+**/coverage/
+
+# macOS
+.DS_Store
+
+# editors
+.vscode/
+.idea/
+
+# env
+.env
+.env.*
+secrets.yaml
+!secrets.enc.yaml
+
+# credentials vault
+.credentials.vault
+*.vault
+!*.vault.example

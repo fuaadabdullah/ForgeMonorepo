@@ -1,0 +1,181 @@
+name: Container Security
+
+on:
+  push:
+    paths:
+      - '**/Dockerfile*'
+      - '.github/workflows/container-security.yml'
+      - 'GoblinOS/packages/goblins/**'
+  pull_request:
+    paths:
+      - '**/Dockerfile*'
+      - '.github/workflows/container-security.yml'
+      - 'GoblinOS/packages/goblins/**'
+  schedule:
+    # Run weekly security scans
+    - cron: '0 2 * * 1'  # Monday 2 AM UTC
+
+jobs:
+  trivy-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      matrix:
+        component:
+          - name: smithy
+            path: GoblinOS/packages/goblins/forge-smithy
+            dockerfile: Dockerfile
+          - name: overmind-bridge
+            path: GoblinOS/packages/goblins/overmind
+            dockerfile: bridge/Dockerfile
+          - name: overmind-api
+            path: GoblinOS/packages/goblins/overmind
+            dockerfile: api/Dockerfile
+          - name: overmind-dashboard
+            path: GoblinOS/packages/goblins/overmind
+            dockerfile: dashboard/Dockerfile
+          - name: forge-backend
+            path: ForgeTM/apps/backend
+            dockerfile: Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Run Trivy config scan on Dockerfile
+        run: |
+          cd ${{ matrix.component.path }}
+          trivy config --exit-code 1 --format sarif ${{ matrix.component.dockerfile }} > ${{ matrix.component.name }}-config.sarif
+
+      - name: Upload Trivy config results to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ matrix.component.path }}/${{ matrix.component.name }}-config.sarif
+        continue-on-error: true
+
+      - name: Build container image
+        run: |
+          cd ${{ matrix.component.path }}
+          docker build -f ${{ matrix.component.dockerfile }} -t ${{ matrix.component.name }}:latest .
+
+      - name: Run Trivy vulnerability scan
+        run: |
+          trivy image --exit-code 1 --no-progress --format sarif ${{ matrix.component.name }}:latest > ${{ matrix.component.name }}-scan.sarif
+
+      - name: Upload Trivy scan results to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ matrix.component.name }}-scan.sarif
+        continue-on-error: true
+
+      - name: Generate SBOM
+        run: |
+          trivy image --format cyclonedx ${{ matrix.component.name }}:latest > ${{ matrix.component.name }}-sbom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.component.name }}-sbom
+          path: ${{ matrix.component.name }}-sbom.json
+
+  cosign-sign:
+    runs-on: ubuntu-latest
+    needs: trivy-scan
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      matrix:
+        component:
+          - name: smithy
+            path: GoblinOS/packages/goblins/forge-smithy
+            dockerfile: Dockerfile
+          - name: overmind-bridge
+            path: GoblinOS/packages/goblins/overmind
+            dockerfile: bridge/Dockerfile
+          - name: overmind-api
+            path: GoblinOS/packages/goblins/overmind
+            dockerfile: api/Dockerfile
+          - name: overmind-dashboard
+            path: GoblinOS/packages/goblins/overmind
+            dockerfile: dashboard/Dockerfile
+          - name: forge-backend
+            path: ForgeTM/apps/backend
+            dockerfile: Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Build container image
+        run: |
+          cd ${{ matrix.component.path }}
+          docker build -f ${{ matrix.component.dockerfile }} -t ${{ matrix.component.name }}:latest .
+
+      - name: Sign container image with Cosign
+        run: |
+          cosign sign --yes ${{ matrix.component.name }}:latest
+
+      - name: Verify container signature
+        run: |
+          cosign verify ${{ matrix.component.name }}:latest --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*"
+
+      - name: Generate attestation
+        run: |
+          cosign attest --yes --predicate attestation.json --type custom ${{ matrix.component.name }}:latest
+
+  security-summary:
+    runs-on: ubuntu-latest
+    needs: [trivy-scan, cosign-sign]
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Generate security summary
+        run: |
+          echo "# Container Security Summary" > security-summary.md
+          echo "" >> security-summary.md
+          echo "## Scan Results" >> security-summary.md
+          echo "" >> security-summary.md
+
+          # Check if any scans failed
+          if [ -f "trivy-scan-results/smithy-scan.sarif" ]; then
+            echo "- ✅ Smithy container scanned" >> security-summary.md
+          else
+            echo "- ❌ Smithy container scan failed" >> security-summary.md
+          fi
+
+          if [ -f "cosign-sign-results/smithy-signature.txt" ]; then
+            echo "- ✅ Smithy container signed" >> security-summary.md
+          else
+            echo "- ❌ Smithy container signing failed" >> security-summary.md
+          fi
+
+          echo "" >> security-summary.md
+          echo "## SBOMs Generated" >> security-summary.md
+          echo "- smithy-sbom.json" >> security-summary.md
+          echo "- overmind-bridge-sbom.json" >> security-summary.md
+          echo "- overmind-api-sbom.json" >> security-summary.md
+          echo "- overmind-dashboard-sbom.json" >> security-summary.md
+
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-summary.md

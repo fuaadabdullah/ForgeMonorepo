@@ -1,0 +1,14 @@
+{
+  "name": "forge-monorepo",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "postinstall": "pnpm -C GoblinOS install --ignore-scripts",
+    "check": "pnpm -C GoblinOS check",
+    "build": "pnpm -C GoblinOS build",
+    "test": "pnpm -C GoblinOS test",
+    "smithy": "pnpm -C GoblinOS smithy",
+    "smithy:deps": "pnpm -C GoblinOS smithy:deps",
+    "smithy:biome": "pnpm -C GoblinOS smithy:biome"
+  }
+}

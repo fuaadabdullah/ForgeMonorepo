@@ -1,0 +1,73 @@
+site_name: ForgeTM Backend Documentation
+site_description: API documentation for the ForgeTM backend service
+site_author: ForgeMonorepo Team
+
+theme:
+  name: material
+  palette:
+    primary: blue
+    accent: blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_toc_entry: true
+            heading_level: 2
+
+nav:
+  - Home: index.md
+  - User Guide:
+      - Getting Started: getting-started.md
+      - API Guide: api-guide.md
+      - Configuration: configuration.md
+      - Deployment: deployment.md
+  - Developer Guide:
+      - Development Setup: development-setup.md
+      - Testing: testing.md
+      - Observability: observability.md
+      - Background Tasks: background-tasks.md
+  # - API Reference:
+  #     - Core: ../src/forge/
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - footnotes
+  - meta
+  - def_list
+  - pymdownx.arithmatex
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde

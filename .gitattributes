@@ -1,0 +1,4 @@
+# keep noise out of diffs
+*.lock linguist-generated
+artifacts/** linguist-generated
+coverage/** linguist-generated

@@ -1,0 +1,40 @@
+name: Backend Migration CI
+
+on:
+  push:
+    paths:
+      - 'ForgeTM/apps/backend/**'
+      - '.github/workflows/backend-migration-ci.yml'
+  pull_request:
+    paths:
+      - 'ForgeTM/apps/backend/**'
+      - '.github/workflows/backend-migration-ci.yml'
+
+jobs:
+  migration-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: uv pip install -r requirements.txt
+        working-directory: ForgeTM/apps/backend
+
+      - name: Check Alembic migrations
+        run: |
+          alembic current
+          alembic check
+        working-directory: ForgeTM/apps/backend
+
+      - name: Run database tests
+        run: python -m pytest tests/ -v -k "migration or db"
+        working-directory: ForgeTM/apps/backend

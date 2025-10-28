@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["src", "tests"],
+  "exclude": ["dist", "e2e", "e2e/*.spec.ts", "e2e/**/*.spec.ts", "tests/*.spec.ts", "tests/**/*.spec.ts"]
+}

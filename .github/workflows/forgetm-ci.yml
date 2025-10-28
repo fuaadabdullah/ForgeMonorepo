@@ -1,0 +1,527 @@
+name: ForgeTM CI
+
+on:
+  push:
+    paths:
+      - 'ForgeTM/**'
+      - '.github/workflows/forgetm-ci.yml'
+  pull_request:
+    paths:
+      - 'ForgeTM/**'
+      - '.github/workflows/forgetm-ci.yml'
+  schedule:
+    # Run full CI weekly to catch regressions
+    - cron: '0 1 * * 1'  # Monday 1 AM UTC
+
+env:
+  UV_CACHE_DIR: ~/.cache/uv
+  PYTHONUNBUFFERED: 1
+
+jobs:
+  # Pre-commit checks and basic validation
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.9.x"
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Cache pre-commit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-${{ runner.os }}-
+
+      - name: Install pre-commit
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pip install pre-commit
+
+      - name: Run pre-commit hooks
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pre-commit run --all-files --show-diff-on-failure
+
+  # Enhanced Python CI with multiple versions and comprehensive testing
+  python-ci:
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11', '3.12']
+        include:
+          - python: '3.11'
+            is_primary: true
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.9.x"
+
+      - name: Set up Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ForgeTM/apps/backend/.venv
+          key: uv-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('ForgeTM/apps/backend/uv.lock', 'ForgeTM/apps/backend/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python }}-
+
+      - name: Install dependencies
+        run: |
+          cd ForgeTM/apps/backend
+          uv sync --frozen
+
+      - name: Run Ruff linting and formatting
+        run: |
+          cd ForgeTM/apps/backend
+          uv run ruff check --output-format=github .
+          uv run ruff format --check .
+
+      - name: Run mypy type checking
+        run: |
+          cd ForgeTM/apps/backend
+          uv run mypy src --show-error-codes --no-error-summary
+
+      - name: Run security linting with Bandit
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pip install bandit[toml]
+          uv run bandit -r src -f json -o bandit-report.json || true
+
+      - name: Upload Bandit results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ForgeTM/apps/backend/bandit-report.json
+        continue-on-error: true
+
+      - name: Run tests with coverage
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pytest \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=html \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            --junitxml=pytest-results.xml \
+            -v
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pytest-results-${{ matrix.python }}
+          path: |
+            ForgeTM/apps/backend/pytest-results.xml
+            ForgeTM/apps/backend/htmlcov/
+
+      - name: Upload coverage to Codecov
+        if: matrix.python == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./ForgeTM/apps/backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
+
+      - name: Run performance tests
+        if: matrix.python == '3.11'
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pytest tests/ -k "performance" --tb=short --maxfail=5 || true
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          cd ForgeTM/apps/backend
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Python ${{ matrix.python }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f pytest-results.xml ]; then
+            PASSED=$(grep -o 'tests="[0-9]*"' pytest-results.xml | grep -o '[0-9]*')
+            FAILED=$(grep -o 'failures="[0-9]*"' pytest-results.xml | grep -o '[0-9]*')
+            ERRORS=$(grep -o 'errors="[0-9]*"' pytest-results.xml | grep -o '[0-9]*')
+            echo "- ✅ Passed: $PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "- ❌ Failed: $FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "- 🚨 Errors: $ERRORS" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install security tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https
+
+          # Install Trivy
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+          # Install ggshield
+          pip install ggshield
+
+      - name: Run ggshield secret scan
+        run: |
+          cd ForgeTM/apps/backend
+          ggshield secret scan path . --recursive --exclude "*.pyc" --exclude "__pycache__" --exclude ".venv" --json > ggshield-results.json || true
+
+      - name: Upload ggshield results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ForgeTM/apps/backend/ggshield-results.json
+        continue-on-error: true
+
+      - name: Run Trivy filesystem scan
+        run: |
+          cd ForgeTM/apps/backend
+          trivy fs --exit-code 0 --format sarif --ignore-unfixed . > backend-trivy.sarif
+
+      - name: Upload Trivy results to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ForgeTM/apps/backend/backend-trivy.sarif
+        continue-on-error: true
+
+      - name: Run dependency vulnerability scan
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pip install pip-audit
+          uv run pip-audit --format json > pip-audit-results.json || true
+
+      - name: Upload pip-audit results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-results
+          path: |
+            ForgeTM/apps/backend/ggshield-results.json
+            ForgeTM/apps/backend/pip-audit-results.json
+
+  # Dependency scanning and license compliance
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: |
+          cd ForgeTM/apps/backend
+          uv sync --frozen
+
+      - name: Generate SBOM
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pip install cyclonedx-bom
+          uv run cyclonedx-py --format json --output sbom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-sbom
+          path: ForgeTM/apps/backend/sbom.json
+
+      - name: Check for outdated dependencies
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pip list --outdated --format json > outdated-packages.json || true
+
+      - name: Upload dependency report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-report
+          path: ForgeTM/apps/backend/outdated-packages.json
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Build documentation
+        run: |
+          cd ForgeTM/apps/backend
+          uv sync --frozen
+          uv run mkdocs build --strict
+
+      - name: Validate documentation links
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pip install linkchecker
+          linkchecker site/index.html --check-extern --no-warnings || true
+
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-docs
+          path: ForgeTM/apps/backend/site/
+
+  # Container build and testing
+  container:
+    runs-on: ubuntu-latest
+    needs: python-ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ForgeTM/apps/backend
+          file: ./ForgeTM/apps/backend/Dockerfile
+          push: false
+          tags: forge-backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      - name: Test Docker image
+        run: |
+          # Start container with health check
+          docker run -d --name forge-test -p 8000:8000 forge-backend:test
+          sleep 30
+
+          # Test health endpoint
+          curl -f http://localhost:8000/health || (docker logs forge-test && exit 1)
+
+          # Test OpenAPI schema
+          curl -f http://localhost:8000/openapi.json || (docker logs forge-test && exit 1)
+
+          # Cleanup
+          docker stop forge-test
+          docker rm forge-test
+
+      - name: Run container security scan
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:latest image \
+            --exit-code 0 \
+            --no-progress \
+            --format sarif \
+            forge-backend:test > container-scan.sarif
+
+      - name: Upload container scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: container-scan.sarif
+        continue-on-error: true
+
+  # Integration testing
+  integration:
+    runs-on: ubuntu-latest
+    needs: container
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      ollama:
+        image: ollama/ollama:latest
+        ports:
+          - 11434:11434
+        options: >-
+          --health-cmd "curl -f http://localhost:11434/api/tags"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ForgeTM/apps/backend
+          file: ./ForgeTM/apps/backend/Dockerfile
+          push: false
+          tags: forge-backend:integration
+          build-args: |
+            APP_ENV=test
+
+      - name: Run integration tests
+        run: |
+          # Start application
+          docker run -d --name forge-integration \
+            -p 8000:8000 \
+            -e REDIS_URL=redis://host.docker.internal:6379 \
+            -e OLLAMA_BASE_URL=http://host.docker.internal:11434 \
+            --add-host host.docker.internal:host-gateway \
+            forge-backend:integration
+
+          # Wait for startup
+          sleep 60
+
+          # Run integration test suite
+          docker exec forge-integration python -m pytest tests/ -k "integration" -v --tb=short
+
+          # Test external API endpoints
+          curl -f http://localhost:8000/health
+          curl -f http://localhost:8000/api/v1/providers
+
+        continue-on-error: true
+
+      - name: Collect integration logs
+        if: always()
+        run: |
+          docker logs forge-integration > integration-logs.txt || true
+          docker stop forge-integration || true
+          docker rm forge-integration || true
+
+      - name: Upload integration logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-logs
+          path: integration-logs.txt
+
+  # Performance testing
+  performance:
+    runs-on: ubuntu-latest
+    needs: container
+    if: github.event.schedule == '0 1 * * 1' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build performance test image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ForgeTM/apps/backend
+          file: ./ForgeTM/apps/backend/Dockerfile
+          push: false
+          tags: forge-backend:perf
+          build-args: |
+            APP_ENV=performance
+
+      - name: Run performance tests
+        run: |
+          # Start application
+          docker run -d --name forge-perf \
+            -p 8000:8000 \
+            -e APP_ENV=performance \
+            forge-backend:perf
+
+          sleep 30
+
+          # Install k6 for load testing
+          curl -fsSL https://deb.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://deb.k6.io/ stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+          # Create k6 test script
+          cat > performance-test.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+
+          export let options = {
+            stages: [
+              { duration: '2m', target: 100 }, // Ramp up to 100 users
+              { duration: '5m', target: 100 }, // Stay at 100 users
+              { duration: '2m', target: 200 }, // Ramp up to 200 users
+              { duration: '5m', target: 200 }, // Stay at 200 users
+              { duration: '2m', target: 0 },   // Ramp down to 0 users
+            ],
+            thresholds: {
+              http_req_duration: ['p(99)<1500'], // 99% of requests should be below 1.5s
+              http_req_failed: ['rate<0.1'],     // Error rate should be below 10%
+            },
+          };
+
+          export default function () {
+            let response = http.get('http://localhost:8000/health');
+            check(response, { 'status is 200': (r) => r.status === 200 });
+            sleep(Math.random() * 3 + 1); // Random sleep between 1-4 seconds
+          }
+          EOF
+
+          # Run performance test
+          k6 run --out json=results.json performance-test.js
+
+        continue-on-error: true
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-results
+          path: |
+            results.json
+            performance-test.js
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop forge-perf || true
+          docker rm forge-perf || true

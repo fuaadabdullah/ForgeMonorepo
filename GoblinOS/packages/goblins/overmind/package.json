@@ -1,0 +1,55 @@
+{
+  "name": "@goblinos/overmind",
+  "version": "0.1.0",
+  "description": "🧙‍♂️ Overmind - Chief Goblin Agent Orchestrator with multi-LLM routing and crew management",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./router": {
+      "import": "./dist/router/index.js",
+      "types": "./dist/router/index.d.ts"
+    },
+    "./memory": {
+      "import": "./dist/memory/index.js",
+      "types": "./dist/memory/index.d.ts"
+    },
+    "./crew": {
+      "import": "./dist/crew/index.js",
+      "types": "./dist/crew/index.d.ts"
+    }
+  },
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write ."
+  },
+  "keywords": ["ai", "llm", "agent", "orchestration", "multi-agent", "router", "goblin"],
+  "author": "GoblinOS Team",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.68.0",
+    "ollama": "^0.5.9",
+    "@google/generative-ai": "^0.21.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.2.2",
+    "@overmind/observability": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "typescript": "^5.6.2",
+    "vitest": "^2.0.5",
+    "@playwright/test": "^1.47.0",
+    "@axe-core/playwright": "^4.10.0",
+    "@pact-foundation/pact": "^13.0.0"
+  }
+}

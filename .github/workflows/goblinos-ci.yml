@@ -1,0 +1,177 @@
+name: GoblinOS CI
+
+on:
+  push:
+    paths:
+      - 'GoblinOS/**'
+      - '.github/workflows/goblinos-ci.yml'
+  pull_request:
+    paths:
+      - 'GoblinOS/**'
+      - '.github/workflows/goblinos-ci.yml'
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22]  # LTS, EOL 2027-04-30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm -C GoblinOS check
+
+      - name: Lint
+        run: pnpm -C GoblinOS lint
+
+      - name: Test with coverage
+        run: pnpm -C GoblinOS test -- --coverage
+
+      - name: Build
+        run: pnpm -C GoblinOS build
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Setup uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install Smithy dependencies
+        run: cd GoblinOS/packages/goblins/forge-smithy && uv sync
+
+      - name: Run Smithy check
+        run: cd GoblinOS/packages/goblins/forge-smithy && uv run smithy check
+
+      - name: Upload coverage (Node 22 only)
+        if: matrix.node == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: GoblinOS/coverage/
+
+  security:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Setup uv cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Run Trivy vulnerability scan
+        run: |
+          # Scan filesystem for vulnerabilities
+          trivy fs --exit-code 1 --no-progress --format json GoblinOS/ > trivy-fs-results.json || true
+
+          # Scan Dockerfiles for misconfigurations
+          find . -name "Dockerfile*" -exec trivy config --exit-code 1 {} \; || true
+
+      - name: Upload Trivy scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-scan-results
+          path: trivy-fs-results.json
+
+      - name: Build and scan container images
+        run: |
+          # Build Smithy container
+          cd GoblinOS/packages/goblins/forge-smithy
+          docker build -t forge-smithy:latest .
+
+          # Scan container image
+          trivy image --exit-code 1 --no-progress --format json forge-smithy:latest > smithy-trivy-results.json || true
+
+          # Build Overmind containers
+          cd ../../../../packages/goblins/overmind
+          docker build -f bridge/Dockerfile -t overmind-bridge:latest .
+          docker build -f api/Dockerfile -t overmind-api:latest .
+          docker build -f dashboard/Dockerfile -t overmind-dashboard:latest .
+
+          # Scan Overmind containers
+          trivy image --exit-code 1 --no-progress --format json overmind-bridge:latest > bridge-trivy-results.json || true
+          trivy image --exit-code 1 --no-progress --format json overmind-api:latest > api-trivy-results.json || true
+          trivy image --exit-code 1 --no-progress --format json overmind-dashboard:latest > dashboard-trivy-results.json || true
+
+      - name: Upload container scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-scan-results
+          path: |
+            smithy-trivy-results.json
+            bridge-trivy-results.json
+            api-trivy-results.json
+            dashboard-trivy-results.json
+
+      - name: Sign container images with Cosign
+        run: |
+          # Sign Smithy image
+          cosign sign --yes forge-smithy:latest
+
+          # Sign Overmind images
+          cosign sign --yes overmind-bridge:latest
+          cosign sign --yes overmind-api:latest
+          cosign sign --yes overmind-dashboard:latest
+
+      - name: Verify container signatures
+        run: |
+          # Verify signatures
+          cosign verify forge-smithy:latest --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" || true
+          cosign verify overmind-bridge:latest --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" || true
+          cosign verify overmind-api:latest --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" || true
+          cosign verify overmind-dashboard:latest --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" || true
+

@@ -1,0 +1,108 @@
+name: Reusable Test Workflow
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: 'Working directory for tests'
+        required: false
+        type: string
+        default: '.'
+      node-version:
+        description: 'Node.js version to use'
+        required: false
+        type: string
+        default: '22'
+      pnpm-version:
+        description: 'pnpm version to use'
+        required: false
+        type: string
+        default: '9'
+      python-version:
+        description: 'Python version to use'
+        required: false
+        type: string
+        default: '3.11'
+      test-type:
+        description: 'Test type: node, python, or both'
+        required: false
+        type: string
+        default: 'node'
+      coverage:
+        description: 'Generate coverage report'
+        required: false
+        type: boolean
+        default: true
+      upload-coverage:
+        description: 'Upload coverage to artifacts'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        if: inputs.test-type == 'node' || inputs.test-type == 'both'
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ inputs.pnpm-version }}
+
+      - name: Setup Node.js
+        if: inputs.test-type == 'node' || inputs.test-type == 'both'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: 'pnpm'
+
+      - name: Install Node dependencies
+        if: inputs.test-type == 'node' || inputs.test-type == 'both'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Node tests
+        if: inputs.test-type == 'node' || inputs.test-type == 'both'
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          if [ "${{ inputs.coverage }}" == "true" ]; then
+            pnpm test -- --coverage
+          else
+            pnpm test
+          fi
+
+      - name: Setup uv
+        if: inputs.test-type == 'python' || inputs.test-type == 'both'
+        uses: astral-sh/setup-uv@v1
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install Python dependencies
+        if: inputs.test-type == 'python' || inputs.test-type == 'both'
+        working-directory: ${{ inputs.working-directory }}
+        run: uv sync --frozen
+
+      - name: Run Python tests
+        if: inputs.test-type == 'python' || inputs.test-type == 'both'
+        working-directory: ${{ inputs.working-directory }}
+        run: |
+          if [ "${{ inputs.coverage }}" == "true" ]; then
+            uv run pytest --cov --cov-report=xml --cov-report=html --cov-fail-under=90
+          else
+            uv run pytest
+          fi
+
+      - name: Upload coverage
+        if: inputs.upload-coverage && inputs.coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ inputs.test-type }}
+          path: |
+            ${{ inputs.working-directory }}/coverage/
+            ${{ inputs.working-directory }}/htmlcov/
+            ${{ inputs.working-directory }}/coverage.xml
+          retention-days: 30

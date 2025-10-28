@@ -1,0 +1,12 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/cli" },
+    { "path": "packages/goblins/quillwarden" },
+    { "path": "packages/goblins/repo-bootstrap" },
+    { "path": "packages/goblins/workspace-health" },
+    { "path": "packages/goblins/shared" },
+    { "path": "packages/goblins/testing" },
+    { "path": "packages/goblins/overmind" }
+  ]
+}

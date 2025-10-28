@@ -1,0 +1,270 @@
+name: ForgeTM Deploy
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version tag (leave empty for latest)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/forge-backend
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      image-digest: ${{ steps.push.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./ForgeTM/apps/backend
+          file: ./ForgeTM/apps/backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+            APP_ENV=${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+
+      - name: Generate SBOM
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            anchore/syft:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }} \
+            -o spdx-json > sbom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+
+      - name: Sign container image
+        run: |
+          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update staging deployment
+        run: |
+          # Update Kubernetes deployment with new image
+          sed -i "s|image:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}|g" \
+            infra/kubernetes/staging/forge-backend-deployment.yaml
+
+          # Apply Kubernetes manifests
+          kubectl apply -f infra/kubernetes/staging/
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/forge-backend -n forge-staging --timeout=600s
+
+      - name: Run staging smoke tests
+        run: |
+          # Get service URL
+          SERVICE_URL=$(kubectl get svc forge-backend -n forge-staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+          # Wait for service to be ready
+          timeout 300 bash -c "until curl -f http://$SERVICE_URL/health; do sleep 10; done"
+
+          # Run smoke tests
+          curl -f http://$SERVICE_URL/health
+          curl -f http://$SERVICE_URL/api/v1/providers
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "## 🚀 Staging Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: staging" >> $GITHUB_STEP_SUMMARY
+          echo "- Health Check: ✅ PASSED" >> $GITHUB_STEP_SUMMARY
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Update production deployment
+        run: |
+          # Update Kubernetes deployment with new image
+          sed -i "s|image:.*|image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}|g" \
+            infra/kubernetes/production/forge-backend-deployment.yaml
+
+          # Apply Kubernetes manifests
+          kubectl apply -f infra/kubernetes/production/
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/forge-backend -n forge-production --timeout=900s
+
+      - name: Run production smoke tests
+        run: |
+          # Get service URL
+          SERVICE_URL=$(kubectl get svc forge-backend -n forge-production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+          # Wait for service to be ready
+          timeout 600 bash -c "until curl -f http://$SERVICE_URL/health; do sleep 15; done"
+
+          # Run comprehensive smoke tests
+          curl -f http://$SERVICE_URL/health
+          curl -f http://$SERVICE_URL/api/v1/providers
+          curl -f http://$SERVICE_URL/openapi.json
+
+      - name: Run production load test
+        run: |
+          # Install k6
+          curl -fsSL https://deb.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://deb.k6.io/ stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+          # Get service URL
+          SERVICE_URL=$(kubectl get svc forge-backend -n forge-production -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
+          # Create load test script
+          cat > load-test.js << EOF
+          import http from 'k6/http';
+          import { check } from 'k6';
+
+          export let options = {
+            vus: 50,
+            duration: '2m',
+            thresholds: {
+              http_req_duration: ['p(95)<1000'],
+              http_req_failed: ['rate<0.05'],
+            },
+          };
+
+          export default function () {
+            let response = http.get(\`http://\${SERVICE_URL}/health\`);
+            check(response, {
+              'status is 200': (r) => r.status === 200,
+              'response time < 1000ms': (r) => r.timings.duration < 1000,
+            });
+          }
+          EOF
+
+          # Run load test
+          k6 run load-test.js
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "## 🎉 Production Deployment Successful" >> $GITHUB_STEP_SUMMARY
+          echo "- Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: production" >> $GITHUB_STEP_SUMMARY
+          echo "- Health Check: ✅ PASSED" >> $GITHUB_STEP_SUMMARY
+          echo "- Load Test: ✅ PASSED" >> $GITHUB_STEP_SUMMARY
+
+      - name: Create deployment tag
+        run: |
+          VERSION=$(date +%Y%m%d-%H%M%S)
+          git tag "deploy/production/${VERSION}"
+          git push origin "deploy/production/${VERSION}"
+
+  rollback:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: failure() && (needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Rollback deployment
+        run: |
+          # Determine environment
+          if [ "${{ needs.deploy-production.result }}" == "failure" ]; then
+            ENV="production"
+            NAMESPACE="forge-production"
+          else
+            ENV="staging"
+            NAMESPACE="forge-staging"
+          fi
+
+          echo "Rolling back $ENV deployment..."
+
+          # Rollback to previous deployment
+          kubectl rollout undo deployment/forge-backend -n $NAMESPACE
+
+          # Wait for rollback to complete
+          kubectl rollout status deployment/forge-backend -n $NAMESPACE --timeout=300s
+
+          echo "## ⚠️ Deployment Rolled Back" >> $GITHUB_STEP_SUMMARY
+          echo "- Environment: $ENV" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: ✅ ROLLED BACK" >> $GITHUB_STEP_SUMMARY

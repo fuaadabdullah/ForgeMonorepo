@@ -1,0 +1,20 @@
+{
+  "name": "goblin",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "goblin": "bin/goblin" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "check": "eslint . && tsc -p tsconfig.json --noEmit",
+    "test": "vitest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2"
+  }
+}

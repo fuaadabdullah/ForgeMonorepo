@@ -1,0 +1,55 @@
+# Justfile for ForgeTM Backend development tasks
+
+# Default recipe
+default:
+    @just --list
+
+# Install dependencies
+install:
+    uv sync
+
+# Run the development server
+serve:
+    PYTHONPATH=src uv run uvicorn forge.main:app --reload --host {{env_var_or_default('BACKEND_HOST', '127.0.0.1')}} --port {{env_var_or_default('BACKEND_PORT', '8000')}}
+
+# Run tests
+test:
+    PYTHONPATH=src uv run pytest
+
+# Run tests with coverage
+test-cov:
+    PYTHONPATH=src uv run pytest --cov=forge --cov-report=html --cov-report=term
+
+# Run linting
+lint:
+    uv run ruff check src tests
+    uv run ruff format --check src tests
+
+# Fix linting issues
+lint-fix:
+    uv run ruff check --fix src tests
+    uv run ruff format src tests
+
+# Type checking
+typecheck:
+    uv run mypy src
+
+# Run Celery worker
+celery-worker:
+    PYTHONPATH=src uv run celery -A forge.celery_app worker --loglevel=info
+
+# Build documentation
+docs-build:
+    uv run mkdocs build
+
+# Serve documentation locally
+docs-serve:
+    uv run mkdocs serve
+
+# Clean up
+clean:
+    rm -rf .pytest_cache .coverage htmlcov dist build *.egg-info
+    find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+# Full development setup check
+check: lint typecheck test

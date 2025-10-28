@@ -1,0 +1,13 @@
+# Toggle goblins and tweak settings here.
+plugins:
+  - name: workspace-health
+    enabled: true
+    with:
+      smokeUrl: http://127.0.0.1:3000
+  - name: repo-bootstrap
+    enabled: true
+    with:
+      ensurePnpm: true
+      requiredNode: 20
+  - name: quillwarden
+    enabled: false

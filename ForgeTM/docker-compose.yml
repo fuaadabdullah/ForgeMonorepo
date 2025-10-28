@@ -1,0 +1,216 @@
+version: '3.8'
+
+services:
+  # FastAPI backend
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: forgetm-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OTEL_SERVICE_NAME=forgetm-backend
+      - OTEL_SERVICE_VERSION=0.1.0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-http://jaeger:4318/v1/traces}
+      - LOG_LEVEL=info
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - forgetm
+    restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # React frontend
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: forgetm-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - forgetm
+    restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis for background task queue
+  redis:
+    image: redis:7.2-alpine
+    container_name: forgetm-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    networks:
+      - forgetm
+    restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Jaeger for distributed tracing (optional, for development)
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: forgetm-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4318:4318"    # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=warn
+    networks:
+      - forgetm
+    restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # LiteLLM proxy for unified LLM API access
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: forgetm-litellm
+    ports:
+      - "4000:4000"  # LiteLLM proxy port
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY:-dev-master-key}
+      - DATABASE_URL=sqlite:///./litellm.db
+      - LITELLM_LOG_LEVEL=INFO
+      - LITELLM_CONFIG_PATH=/app/config.yaml
+    volumes:
+      - litellm_data:/app/data
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    networks:
+      - forgetm
+    restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Ollama for local LLM inference (optional, for development)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: forgetm-ollama
+    ports:
+      - "11434:11434"  # Ollama API
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - forgetm
+    restart: unless-stopped
+    # Resource limits (higher for LLM inference)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    # Health check
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  forgetm:
+    driver: bridge
+
+volumes:
+  redis_data:
+  ollama_data:
+  litellm_data:
+
+# Usage:
+# 1. Create .env file with required variables (see .env.example)
+#
+# 2. Build and start all services:
+#    docker-compose up -d
+#
+# 3. Access services:
+#    - Backend API: http://localhost:8000
+#    - Frontend: http://localhost:3000
+#    - Jaeger UI: http://localhost:16686
+#    - Ollama API: http://localhost:11434
+#
+# 4. View logs:
+#    docker-compose logs -f backend
+#
+# 5. Stop all services:
+#    docker-compose down

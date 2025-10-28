@@ -1,0 +1,4 @@
+# file: /Users/fuaadabdullah/ForgeMonorepo/ForgeTM/apps/backend/src/forge/api/providers.py
+# hypothesis_version: 6.142.3
+
+[2.0, 200, 1000, '/', '/api/tags', '/health', '/v1/models', 'check_litellm', 'check_ollama', 'degraded', 'error', 'error.message', 'health.litellm_ok', 'health.ollama_ok', 'latency_ms', 'litellm', 'name', 'ok', 'ollama', 'provider.latency_ms', 'provider.name', 'provider.status', 'provider.url', 'providers', 'status', 'took_ms', 'url']

@@ -1,0 +1,4 @@
+packages:
+  - GoblinOS
+  - GoblinOS/packages/*
+  - ForgeTM/apps/frontend

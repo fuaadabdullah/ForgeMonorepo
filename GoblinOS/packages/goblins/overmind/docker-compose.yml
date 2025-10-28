@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # FastAPI backend
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: overmind-api
+    ports:
+      - "8001:8001"
+    environment:
+      - NODE_BRIDGE_URL=http://bridge:3030
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
+      - LOG_LEVEL=info
+    depends_on:
+      - bridge
+      - jaeger
+    networks:
+      - overmind
+    restart: unless-stopped
+
+  # Node.js bridge
+  bridge:
+    build:
+      context: ./bridge
+      dockerfile: Dockerfile
+    container_name: overmind-bridge
+    ports:
+      - "3030:3030"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - SMITHY_SERVICE_URL=http://smithy:8002
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
+      - LOG_LEVEL=info
+    depends_on:
+      - jaeger
+      - ollama
+    networks:
+      - overmind
+    restart: unless-stopped
+
+  # Smithy (Forge Guild environment goblin)
+  smithy:
+    build:
+      context: ../../../packages/goblins/forge-smithy
+      dockerfile: Dockerfile
+    container_name: overmind-smithy
+    ports:
+      - "8002:8002"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
+      - LOG_LEVEL=info
+    depends_on:
+      - jaeger
+    networks:
+      - overmind
+    restart: unless-stopped
+
+  # Jaeger for distributed tracing (optional, for development)
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: overmind-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4318:4318"    # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - LOG_LEVEL=warn
+    networks:
+      - overmind
+    restart: unless-stopped
+
+  # React dashboard (optional, for development)
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: overmind-dashboard
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    networks:
+      - overmind
+    restart: unless-stopped
+
+  # Ollama for local LLM inference (optional, for development)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: overmind-ollama
+    ports:
+      - "11435:11434"  # Avoid conflict with ForgeTM Ollama on 11434
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - overmind
+    restart: unless-stopped
+    # Resource limits (higher for LLM inference)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    # Health check
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  overmind:
+    driver: bridge
+
+volumes:
+  ollama_data:
+
+# Usage:
+# 1. Create .env file with API keys:
+#    GEMINI_API_KEY=your_key_here
+#    DEEPSEEK_API_KEY=your_key_here
+#
+# 2. Build and start all services:
+#    docker-compose up -d
+#
+# 3. Access services:
+#    - API: http://localhost:8001
+#    - Jaeger UI: http://localhost:16686
+#    - Dashboard: http://localhost:5173
+#
+# 4. View logs:
+#    docker-compose logs -f
+#
+# 5. Stop all services:
+#    docker-compose down
