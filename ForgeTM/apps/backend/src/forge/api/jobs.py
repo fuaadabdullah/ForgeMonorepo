@@ -9,6 +9,9 @@ from ..api.auth import get_current_active_user
 from ..database import get_db
 from ..models.jobs import Job as JobModel, Run as RunModel
 from ..models.user import User
+from ..jobs.service import engine_and_session
+import json
+import time
 
 router = APIRouter()
 
@@ -218,3 +221,32 @@ async def get_last_failed_run(
             'logs': run.logs.split('\n') if getattr(run, 'logs', None) else [],
         },
     }
+
+
+class EnqueueRequest(BaseModel):
+    type: str
+    payload: dict | None = None
+    priority: int | None = 0
+
+
+@router.post('/jobs/enqueue')
+async def enqueue_job(
+    req: EnqueueRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Enqueue a job into the durable goblin DB (Application Support goblin.db)."""
+    engine, Session = engine_and_session()
+    job_id = f"job_{int(time.time())}_{hash(req.type) % 1000}"
+    with Session() as s:
+        s.execute(
+            "INSERT INTO job (id, type, payload, created_at, priority, state) VALUES (:id, :type, :payload, :created_at, :priority, 'queued')",
+            {
+                "id": job_id,
+                "type": req.type,
+                "payload": json.dumps(req.payload or {}),
+                "created_at": int(time.time()),
+                "priority": req.priority or 0,
+            },
+        )
+        s.commit()
+    return {"id": job_id, "status": "queued"}
