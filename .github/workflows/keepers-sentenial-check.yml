@@ -1,0 +1,115 @@
+name: '🔐 Keepers Guild: Sentinel Check'
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - '**/*.env*'
+      - 'secrets.*'
+      - 'CREDENTIALS.md'
+      - '**/*key*'
+      - '**/*secret*'
+      - '**/*token*'
+      - 'encrypt-env.sh'
+      - 'decrypt-env.sh'
+      - 'infra/**'
+      - 'pyproject.toml'
+      - 'package.json'
+
+jobs:
+  sentenial-check:
+    name: 'Security & Secrets Check'
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'keepers/sentenial-check') || contains(github.event.pull_request.labels.*.name, 'guild:keepers')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install GitGuardian
+        run: |
+          curl -sSL https://github.com/GitGuardian/ggshield/releases/latest/download/ggshield-linux.tar.gz | tar -xz
+          sudo mv ggshield /usr/local/bin/
+
+      - name: Run secret scan
+        run: |
+          ggshield secret scan repo .
+          ggshield secret scan pre-commit
+
+      - name: Check for hardcoded secrets
+        run: |
+          # Scan for common secret patterns
+          if grep -r "password\|secret\|key\|token" --include="*.py" --include="*.ts" --include="*.js" --include="*.json" ForgeTM/ | grep -v "node_modules\|__pycache__\|.env"; then
+            echo "Potential hardcoded secrets found!"
+            exit 1
+          fi
+
+      - name: Validate environment files
+        run: |
+          # Check that .env.example exists and is up to date
+          if [ ! -f ".env.example" ]; then
+            echo ".env.example file is missing!"
+            exit 1
+          fi
+
+          # Validate secrets.enc.yaml structure
+          if [ -f "secrets.enc.yaml" ]; then
+            python3 -c "
+            import yaml
+            try:
+                with open('secrets.enc.yaml', 'r') as f:
+                    data = yaml.safe_load(f)
+                print('secrets.enc.yaml structure is valid')
+            except Exception as e:
+                print(f'secrets.enc.yaml validation failed: {e}')
+                exit(1)
+            "
+          fi
+
+      - name: SBOM generation check
+        run: |
+          # Generate SBOM for dependencies
+          cd ForgeTM/apps/backend
+          pip install cyclonedx-bom
+          cyclonedx-bom --format json --output sbom.json .
+
+          cd ../../../GoblinOS
+          pnpm install
+          npx @cyclonedx/cyclonedx-npm --output-format JSON --output-file sbom.json
+
+      - name: Backup integrity check
+        run: |
+          # Verify backup scripts exist and are executable
+          if [ ! -x "encrypt-env.sh" ] || [ ! -x "decrypt-env.sh" ]; then
+            echo "Backup scripts are not executable or missing!"
+            exit 1
+          fi
+
+      - name: Security audit
+        run: |
+          # Run security audits on dependencies
+          cd ForgeTM/apps/backend
+          pip install safety
+          safety check
+
+          cd ../../../GoblinOS
+          pnpm audit --audit-level high
+
+      - name: Comment on PR
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚨 **Keepers Guild Security Check Failed**\n\nSecurity validation has failed. Please review:\n- Secret leaks detected\n- Hardcoded credentials found\n- Environment file validation\n- SBOM generation\n- Dependency vulnerabilities\n\n@Sentenial Ledgerwarden (Sealkeeper) has been notified for immediate review.'
+            })

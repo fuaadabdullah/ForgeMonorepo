@@ -2,10 +2,10 @@ name: smithy-maintenance
 on:
   push:
     paths:
-      - 'packages/goblins/forge-guild/**'
+      - "packages/goblins/forge-master/**"
   pull_request:
     paths:
-      - 'packages/goblins/forge-guild/**'
+      - "packages/goblins/forge-master/**"
   workflow_dispatch:
 
 jobs:
@@ -20,11 +20,11 @@ jobs:
         with:
           node-version: 20
       - name: Install workspace deps (smithy only)
-        run: pnpm -w --filter @goblinos/forge-guild install
+        run: pnpm -w --filter @goblinos/forge-master install
       - name: Run smithy env validation
-        run: bash GoblinOS/packages/goblins/forge-guild/scripts/validate_envs.sh
+        run: bash GoblinOS/packages/goblins/forge-master/scripts/validate_envs.sh
       - name: Run smithy tests (unit + smoke)
-        run: pnpm -w --filter @goblinos/forge-guild test
+        run: pnpm -w --filter @goblinos/forge-master test
   auto-pr:
     needs: validate-smithy
     if: failure()
@@ -38,6 +38,6 @@ jobs:
           commit-message: "chore(smithy): auto-fix smithy maintenance [auto]"
           title: "chore(smithy): auto-fix smithy maintenance"
           body: |
-            Automated smithy-only maintenance PR. Changes limited to GoblinOS/packages/goblins/forge-guild.
+            Automated smithy-only maintenance PR. Changes limited to GoblinOS/packages/goblins/forge-master.
           branch: smithy/auto-fixes
           labels: area/smithy

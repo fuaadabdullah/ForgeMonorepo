@@ -1,96 +1,285 @@
----
-title: Obsidian Notes
-type: reference
-project: ForgeMonorepo
-status: draft
-owner: GoblinOS
----
+# 🌟 World-Class Obsidian Development Knowledge Management System
 
-**Knowledge Base & Documentation Hub** - Central repository for all markdown (`.md`) notes, documentation, and knowledge base files within the ForgeMonorepo.
+## 📖 Overview
 
-## 🎯 Purpose
+This Obsidian vault serves as the central nervous system for ForgeTM and GoblinOS development, providing comprehensive knowledge management, real-time KPI tracking, and optimized development workflows.
 
-This workspace maintains a clean separation between code and documentation, providing a centralized location for:
+## 🚀 Quick Start
 
-- 📝 **Project Documentation** - Setup guides, architecture docs, and tutorials
-- 🔍 **Knowledge Base** - Notes, research, and reference materials
-- 📋 **Meeting Notes** - Team discussions and decisions
-- 🎯 **Specifications** - Feature specs, API designs, and technical requirements
-
-## 📁 Structure
-
-All `.md` files should be placed in this workspace folder to maintain organization:
-
-```text
-Obsidian/
-├── 📖 docs/           # Formal documentation
-├── 📝 notes/          # Working notes and research
-├── 🎯 specs/          # Technical specifications
-└── 📋 meetings/       # Meeting notes and decisions
-```
-
-## 📝 Naming Conventions
-
-- 📄 **General files**: Use descriptive, lowercase filenames with hyphens: `my-note-topic.md`
-- 📅 **Dated entries**: Prefix with ISO date: `2025-10-25-topic.md`
-- 🎯 **Specifications**: Use structured naming: `spec-<area>-<topic>.md`
-- 🏗️ **Architecture**: Use: `arch-<component>-<aspect>.md`
-
-## 🚀 Usage
-
-This folder is managed as a separate workspace root in VS Code. Access it via:
+### 1. 📂 Open the Vault
 
 ```bash
 code /Users/fuaadabdullah/ForgeMonorepo/forge.code-workspace
+# Navigate to ForgeGoblinVault folder
 ```
 
-## 🛠️ Maintenance Guidelines
+### 2. 🔌 Install Required Plugins
 
-### File Organization
+Install these plugins from Obsidian's Community Plugins:
 
-- 📁 Keep a `README.md` or `.gitkeep` in every persistent subdirectory
-- 🏷️ Use consistent folder structure across similar content types
-- 🔄 Regularly review and archive outdated content
+- **📊 Dataview** - Dynamic queries and dashboards
+- **📝 Templater** - Automated note creation with custom functions
+- **📋 Kanban** - Workflow management and project boards
+- **📅 Calendar** - Timeline tracking (optional)
 
-### Documentation Standards
+For pinned plugin versions and compatibility notes, see `🛠️ Tools/PLUGIN_VERSIONS.md`.
 
-- 📚 Follow the **Diátaxis documentation model** for user-facing content:
-  - 📖 **Tutorials**: Learning-oriented, step-by-step guides
-  - ❓ **How-to guides**: Problem-oriented, practical solutions
-  - 📚 **Reference**: Information-oriented, technical descriptions
-  - 💭 **Explanation**: Understanding-oriented, background concepts
+### 3. 🌅 Start Your Day
 
-### Metadata Requirements
+1. Open [[📊 Dashboards/Intelligent Development Dashboard]]
+2. Create daily metrics: Use the "Log Daily Metrics" quick action
+3. Review active projects and automated alerts
 
-- 📋 Update YAML front-matter when creating structured docs:
+## Folder Structure
 
-  ```yaml
-  ---
-  title: Document Title
-  type: tutorial|how-to|reference|explanation
-  project: ForgeTM|GoblinOS|ForgeMonorepo
-  status: draft|reviewed|published
-  owner: Team/Individual
-  ---
-  ```
+```text
+ForgeGoblinVault/
+├── 📊 Dashboards/           # Intelligent dashboards and analytics
+│   ├── Intelligent_Development_Dashboard.md  # Main automated dashboard
+│   ├── ForgeTM_KPI_Dashboard.md             # Backend/frontend KPIs
+│   └── GoblinOS_KPI_Dashboard.md            # Agent development KPIs
+├── 📋 Projects/            # Active development projects
+│   ├── ForgeTM/            # Backend/frontend projects
+│   └── GoblinOS/           # Agent development projects
+├── 🔄 Workflows/           # Development processes and templates
+│   ├── ForgeTM/            # Component-specific workflows
+│   └── GoblinOS/           # Component-specific workflows
+├── 📈 Metrics/             # KPI tracking and performance data
+│   ├── ForgeTM/            # Backend/frontend metrics
+│   └── GoblinOS/           # Agent development metrics
+├── 🎯 Goals/               # Objectives and roadmap tracking
+├── 📚 Knowledge/           # Technical documentation and insights
+│   ├── VS_Code_Terminal_Shell_Integration.md  # Terminal integration guide
+│   └── [Additional technical docs]
+├── 🛠️ Tools/              # Development tooling and automation
+├── 👥 Team/                # Team coordination and communication
+└── 📅 Planning/            # Sprint planning and retrospectives
+```
 
-### Content Quality
+## Key Workflows
 
-- ✅ Write in clear, concise language
-- 🔗 Include relevant cross-references and links
-- 📅 Keep content current and review periodically
-- 🎯 Focus on actionable information
+### Starting a New Project
 
-## 🔍 Search & Discovery
+1. Use the "Create New Project" quick action in [[� Dashboards/Intelligent Development Dashboard]]
+2. Fill in project details using the Feature Development Lifecycle template
+3. Project automatically appears in active projects list
+4. Link to dashboard and relevant metrics
 
-- 🔎 Use VS Code's search across the workspace to find content
-- 🏷️ Leverage front-matter metadata for filtering
-- 📖 Reference this documentation in code comments and PRs
-- 🔗 Link between related documents for better navigation
+### Daily Development
 
-## 🤝 Contributing
+1. Open [[📊 Dashboards/Intelligent Development Dashboard]]
+2. Use "Log Daily Metrics" quick action for automated KPI entry
+3. Review automated alerts and critical issues
+4. Track progress against goals with real-time visualizations
 
-- ✍️ Anyone can add documentation - no special permissions required
-- 👥 Use PRs for significant changes to review quality and accuracy
-- 📝 Follow the established naming conventions and structure
-- 🔄 Keep documentation synchronized with code changes
+### Sprint Planning
+
+1. Review [[📊 Dashboards/Intelligent Development Dashboard]] for system health
+2. Set sprint goals in [[🎯 Goals/]]
+3. Create sprint backlog in [[📅 Planning/]]
+4. Monitor burndown charts and automated progress tracking
+
+## Templates Available
+
+- **Feature Development Lifecycle Template** - Complete project workflow
+- **Metrics Template** - Automated KPI entry with status calculations
+- **Code Review Process Template** - PR review documentation
+- **Testing & QA Workflow Template** - Quality assurance processes
+- **Knowledge Management Template** - Documentation creation
+- **Team Coordination Framework Template** - Meeting and communication
+
+## Automation Features
+
+### Templater Functions
+
+Custom JavaScript functions available in templates:
+
+- `calculateKPIStatus(current, target, type)` - Automated KPI health assessment
+- `generateBurndownData()` - Sprint progress calculations
+- `generateProjectId()` - Standardized project ID generation
+- `calculateTeamCapacity()` - Resource utilization tracking
+- `assessRisk()` - Risk evaluation and prioritization
+
+### Dataview Queries
+
+#### System Health Overview
+
+```dataview
+TABLE
+  status as "Status",
+  format(average, ".1f") as "Average",
+  format(trend, ".1f") as "Trend",
+  target as "Target"
+FROM "� Metrics"
+WHERE component != null
+GROUP BY component
+```
+
+#### Active Projects Status
+
+```dataview
+TABLE WITHOUT ID
+  file.link as "Project",
+  status as "Status",
+  priority as "Priority",
+  format(date(due-date), "MMM dd") as "Due",
+  progress as "Progress"
+FROM "� Projects"
+WHERE status != "completed"
+SORT priority desc, due-date asc
+```
+
+#### Critical Issues Alert
+
+```dataview
+LIST
+FROM "📈 Metrics"
+WHERE status = "🔴 critical" OR status = "🟠 needs-improvement"
+SORT priority desc
+```
+
+## Best Practices
+
+### File Naming
+
+- Use `YYYY-MM-DD_Description.md` for date-based files
+- Use `Component_Feature.md` for feature documentation
+- Use `KPI_Metric.md` for metrics tracking
+
+### Linking
+
+- Use `[[File Name]]` for internal links
+- Use `[[#Section]]` for section links
+- Use `[[File Name#Section]]` for specific sections
+
+### Tags
+
+- `#project/[name]` - Project-related content
+- `#component/[forge|goblin]` - Component classification
+- `#priority/[high|medium|low]` - Priority levels
+- `#status/[active|completed|blocked]` - Status tracking
+
+### Properties (YAML Frontmatter)
+
+```yaml
+---
+title: "Document Title"
+component: "ForgeTM" | "GoblinOS" | "Cross-Project"
+priority: "High" | "Medium" | "Low"
+status: "Planning" | "Active" | "Completed" | "On-Hold"
+date: "2024-01-15"
+owner: "Developer Name"
+---
+```
+
+## Maintenance
+
+### Weekly Tasks
+
+- [ ] Review [[📊 Dashboards/Main Development Dashboard]]
+- [ ] Update project statuses
+- [ ] Archive completed items
+- [ ] Review metrics trends
+
+### Monthly Tasks
+
+- [ ] Clean up old logs (archive after 3 months)
+- [ ] Update templates based on feedback
+- [ ] Review and update goals
+- [ ] Audit link integrity
+
+### Quarterly Tasks
+
+- [ ] Major template updates
+- [ ] Plugin updates and optimizations
+- [ ] System performance review
+- [ ] User feedback collection
+
+## Troubleshooting
+
+### Common Issues
+
+**Dataview not updating:**
+
+- Check plugin is enabled
+- Refresh the vault (Ctrl/Cmd + R)
+- Verify query syntax
+
+**Links not working:**
+
+- Ensure correct file naming
+- Check for typos in link syntax
+- Use the link suggestion feature (Ctrl/Cmd + O)
+
+**Templates not working:**
+
+- Verify Templater plugin is enabled
+- Check template file exists
+- Review template syntax
+
+### Getting Help
+
+- Check [[📚 Knowledge/Troubleshooting Guide]]
+- Review [[🔄 Workflows/Getting Started]]
+- Contact team lead for system issues
+
+## Contributing
+
+### Adding New Templates
+
+1. Create template in [[🔄 Workflows/]]
+2. Document usage in this README
+3. Test with different scenarios
+4. Update examples and best practices
+
+### Modifying Dashboards
+
+1. Backup current dashboard
+2. Test Dataview queries
+3. Update documentation
+4. Review with team
+
+### System Improvements
+
+1. Document proposed changes
+2. Test impact on existing workflows
+3. Update this README
+4. Train team on new features
+
+---
+
+## System Status
+## System Status
+
+**Phase:** 4 (Intelligence & Automation) - ✅ Complete
+**Follow-ups:** All 5 items - ✅ Complete
+**Vault Name:** ForgeGoblinVault
+**Last Updated:** October 27, 2025
+**Total Files:** 66 markdown documents
+**CI Status:** Automated validation active
+
+For a compact record of the phases, completion dates, owners and recommended follow-ups see `VAULT_PHASES.md`.
+
+### ✅ Completed Phases (summary)
+
+- **Phase 1**: Foundation structure and templates (completed 2025-09-10)
+- **Phase 2**: KPI tracking system & dashboards (completed 2025-10-01)
+- **Phase 3**: Workflow optimization with templates (completed 2025-10-12)
+- **Phase 4**: Intelligence & automation (completed 2025-10-26)
+
+### ✅ Completed Follow-ups (summary)
+
+- **Ownership & Rotation**: Rotating maintenance system established
+- **Plugin Documentation**: Version compatibility matrix maintained
+- **Onboarding Guide**: Comprehensive 30-minute setup process
+- **CI Automation**: Weekly validation and link checking
+- **Review Cadence**: Monthly/quarterly maintenance processes
+
+### 🚀 Ready for Activation
+
+1. Open vault in Obsidian
+2. Install community plugins (Dataview, Templater, Kanban)
+3. Enable plugins in settings
+4. Start using [[📊 Dashboards/Intelligent Development Dashboard]]
+
+For the detailed implementation plan and rollout notes see [[Obsidian_System_Plan.md]] and [[VAULT_PHASES.md]].

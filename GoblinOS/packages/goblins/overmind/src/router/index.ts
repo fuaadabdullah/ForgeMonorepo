@@ -14,6 +14,7 @@
  */
 
 import { trace, tracingUtils } from '../../observability/tracing.js'
+import { GuildLiteBrainEnforcer } from '../guild-enforcement.js'
 import { estimateSavings, selectModel } from '../providers/ollama.js'
 import type { OvermindConfig, RouterDecision, RoutingStrategy, TaskComplexity } from '../types.js'
 import {
@@ -21,6 +22,7 @@ import {
   type LLMProvider,
   LLMProvider as Provider,
 } from '../types.js'
+import { isProviderAvailable } from './policy.js'
 
 /**
  * Tracer for routing operations
@@ -256,20 +258,20 @@ function estimateCost(model: string, inputTokens: number, outputTokens = 500): n
 }
 
 /**
- * Check if provider is available in config
+ * Get default model for a provider
  */
-function isProviderAvailable(config: OvermindConfig, provider: LLMProvider): boolean {
+function getDefaultModelForProvider(provider: LLMProvider): string {
   switch (provider) {
     case Provider.OPENAI:
-      return !!config.providers.openai?.apiKey
+      return 'gpt-4o-mini'
     case Provider.DEEPSEEK:
-      return !!config.providers.deepseek?.apiKey
+      return 'deepseek-chat'
     case Provider.GEMINI:
-      return !!config.providers.gemini?.apiKey
+      return 'gemini-2.0-flash'
     case Provider.OLLAMA:
-      return !!config.providers.ollama?.baseURL // Ollama is available if baseURL is set
+      return 'qwen2.5:3b'
     default:
-      return false
+      return 'gpt-4o-mini' // fallback
   }
 }
 
@@ -488,6 +490,8 @@ export function routeQuery(
     complexity?: TaskComplexity
     inputTokens?: number
     attempt?: number
+    guildId?: string
+    goblinId?: string
   } = {}
 ): RouterDecision {
   return tracer.startActiveSpan('routeQuery', (span: any) => {
@@ -496,11 +500,15 @@ export function routeQuery(
       const complexity = options.complexity || classifyComplexity(prompt)
       const inputTokens = options.inputTokens || Math.ceil(prompt.length / 4) // rough estimate
       const attempt = options.attempt || 1
+      const guildId = options.guildId
+      const goblinId = options.goblinId
 
       span.setAttribute('routing.strategy', strategy)
       span.setAttribute('message.length', prompt.length)
       span.setAttribute('message.complexity', complexity)
       span.setAttribute('routing.attempt', attempt)
+      if (guildId) span.setAttribute('guild.id', guildId)
+      if (goblinId) span.setAttribute('goblin.id', goblinId)
 
       let decision: { provider: LLMProvider; model: string; reason: string }
 
@@ -523,6 +531,71 @@ export function routeQuery(
         default:
           // Fallback to cost-optimized
           decision = routeCostOptimized(complexity, config, inputTokens)
+      }
+
+      // Enforce guild litebrain restrictions if guild context provided
+      if (guildId && goblinId) {
+        const enforcer = new GuildLiteBrainEnforcer()
+        const validation = enforcer.validate(guildId, goblinId, decision.provider, decision.model)
+
+        if (!validation.valid) {
+          span.recordException(new Error(`Guild litebrain violation: ${validation.error}`))
+          span.setAttribute('guild.violation', true)
+          span.setAttribute('guild.violation_reason', validation.error)
+
+          // Try to find an allowed alternative
+          const allowedBrains = enforcer.getAllowedBrains(guildId, goblinId)
+          if (allowedBrains) {
+            // Try local models first
+            for (const localModel of allowedBrains.local) {
+              if (isProviderAvailable(config, Provider.OLLAMA)) {
+                decision = {
+                  provider: Provider.OLLAMA,
+                  model: localModel,
+                  reason: `Guild enforcement: switched to allowed local model ${localModel} (${validation.error})`,
+                }
+                break
+              }
+            }
+
+            // If no local models available, try routers
+            if (decision.provider !== Provider.OLLAMA) {
+              for (const router of allowedBrains.routers) {
+                // Map router names to providers (simplified mapping)
+                let provider: LLMProvider | null = null
+                if (router.toLowerCase().includes('deepseek')) provider = Provider.DEEPSEEK
+                else if (router.toLowerCase().includes('openai')) provider = Provider.OPENAI
+                else if (router.toLowerCase().includes('gemini')) provider = Provider.GEMINI
+
+                if (provider && isProviderAvailable(config, provider)) {
+                  // Use a reasonable default model for the provider
+                  const defaultModel = getDefaultModelForProvider(provider)
+                  decision = {
+                    provider,
+                    model: defaultModel,
+                    reason: `Guild enforcement: switched to allowed router ${router} (${validation.error})`,
+                  }
+                  break
+                }
+              }
+            }
+          }
+
+          // If we still don't have a valid decision, throw an error
+          const finalValidation = enforcer.validate(
+            guildId,
+            goblinId,
+            decision.provider,
+            decision.model
+          )
+          if (!finalValidation.valid) {
+            throw new Error(
+              `No allowed litebrain available for goblin ${goblinId} in guild ${guildId}: ${finalValidation.error}`
+            )
+          }
+        }
+
+        span.setAttribute('guild.enforced', true)
       }
 
       span.setAttribute('routing.provider', decision.provider)

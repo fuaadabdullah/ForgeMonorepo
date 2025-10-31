@@ -1,0 +1,67 @@
+name: '🏗️ Forge Guild: Performance Benchmark'
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'tools/**'
+      - 'infra/**'
+      - 'graph-java/**'
+      - 'ForgeTM/**'
+      - 'GoblinOS/packages/goblins/forge-master/**'
+      - '.github/workflows/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'pyproject.toml'
+
+jobs:
+  perf-benchmark:
+    name: 'Performance Benchmark'
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'forge/perf-benchmark') || contains(github.event.pull_request.labels.*.name, 'guild:forge')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          cd ForgeTM/apps/backend && python -m pip install --upgrade pip && pip install -e .
+
+      - name: Run performance benchmarks
+        run: |
+          # Build time benchmark
+          echo "Building frontend..."
+          time pnpm --filter ForgeTM build
+
+          # Backend startup time
+          echo "Testing backend startup..."
+          cd ForgeTM/apps/backend
+          timeout 30s python -c "import uvicorn; from forge.main import app; print('Backend imports successful')" || echo "Backend import failed"
+
+          # Bundle size check
+          echo "Checking bundle sizes..."
+          pnpm --filter ForgeTM build
+          find ForgeTM/apps/frontend/dist -name "*.js" -exec ls -lh {} \; | head -10
+
+      - name: Run smoke tests
+        run: bash tools/smoke.sh
+
+      - name: Performance regression check
+        run: |
+          # Check for performance regressions in key metrics
+          echo "Checking for performance regressions..."
+          # Placeholder for actual performance regression logic
+          # This would compare against baseline metrics stored in the repo

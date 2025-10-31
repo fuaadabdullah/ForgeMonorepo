@@ -143,6 +143,7 @@ export default function ModelsPage() {
           {/* Tab Navigation */}
           <div className="flex border-b border-border">
             <button
+              type="button"
               onClick={() => setActiveTab('models')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'models'
@@ -153,6 +154,7 @@ export default function ModelsPage() {
               Available Models
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('providers')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'providers'
@@ -205,6 +207,7 @@ export default function ModelsPage() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => checkModelAvailability(model)}
                     className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                   >
@@ -306,6 +309,7 @@ export default function ModelsPage() {
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => saveConfig(provider)}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
                     >

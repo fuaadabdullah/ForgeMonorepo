@@ -36,9 +36,12 @@ class Settings(BaseSettings):
     # Backend configuration
     backend_host: str = '127.0.0.1'
     backend_port: int = 8000
-    database_url: str = 'postgresql://user:password@localhost:5432/forgetm'
+    database_url: str = 'sqlite:///./forgetm.db'
     redis_url: str = 'redis://localhost:6379/0'
     secret_key: str = 'your-secret-key-here-change-in-production'  # JWT secret key
+
+    # Overmind bridge configuration
+    overmind_bridge_port: int = 3030
 
     # Observability
     otel_service_name: str = 'forgetm-backend'
@@ -46,7 +49,8 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = 'http://localhost:4318/v1/traces'
     enable_tracing: bool = True
 
-    # Sentry error tracking
+    # Testing configuration
+    testing: bool = False  # Set to True to bypass authentication for testing
     sentry_dsn: str | None = None
     sentry_environment: str = 'development'
     sentry_release: str = 'forgetm-backend@0.1.0'

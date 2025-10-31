@@ -12,7 +12,6 @@
  */
 
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
-import { litellm } from '../clients/litellm-proxy.js'
 import {
   chunkMarkdown,
   chunkText,

@@ -30,6 +30,80 @@ class SearchResult(BaseModel):
     metadata: dict[str, Any] = {}
 
 
+class InMemoryVectorDatabase:
+    """In-memory vector database for development/testing when Pinecone is not available."""
+
+    def __init__(self) -> None:
+        self.documents: dict[str, VectorDocument] = {}
+
+    def store_document(self, document: VectorDocument) -> str:
+        """Store a document."""
+        self.documents[document.id] = document
+        return document.id
+
+    def search_similar(
+        self, query_embedding: list[float], limit: int = 10, threshold: float = 0.7
+    ) -> list[SearchResult]:
+        """Search for similar documents using cosine similarity."""
+        # numpy is an optional dev dependency used for the in-memory
+        # vector DB search. Some dev environments may not have numpy
+        # installed; silence mypy's missing-import warning here.
+        import numpy as np  # type: ignore[import-not-found]
+
+        results = []
+        query_vec = np.array(query_embedding)
+
+        for doc in self.documents.values():
+            if doc.embedding:
+                doc_vec = np.array(doc.embedding)
+                # Cosine similarity
+                similarity = np.dot(query_vec, doc_vec) / (
+                    np.linalg.norm(query_vec) * np.linalg.norm(doc_vec)
+                )
+
+                if similarity >= threshold:
+                    results.append(
+                        SearchResult(
+                            document=doc,
+                            score=float(similarity),
+                            metadata=doc.metadata,
+                        )
+                    )
+
+        # Sort by similarity score (descending) and return top results
+        results.sort(key=lambda x: x.score, reverse=True)
+        return results[:limit]
+
+    def list_documents(self, limit: int = 100) -> list[VectorDocument]:
+        """List all documents."""
+        docs = list(self.documents.values())
+        return docs[:limit]
+
+    def delete_document(self, doc_id: str) -> bool:
+        """Delete a document by ID."""
+        if doc_id in self.documents:
+            del self.documents[doc_id]
+            return True
+        return False
+
+    def get_document(self, document_id: str) -> VectorDocument | None:
+        """Get a document by ID."""
+        return self.documents.get(document_id)
+
+    def get_stats(self) -> dict[str, int | str]:
+        """Get database statistics."""
+        return {
+            'total_vectors': len(self.documents),
+            'dimension': 1536,  # Fixed for development
+            'index_name': 'in-memory',
+        }
+
+    def clear_all(self) -> bool:
+        """Clear all documents."""
+        self.documents.clear()
+        return True
+
+
 class VectorDatabase:
     """Vector database service using Pinecone."""
 
@@ -195,14 +269,19 @@ class VectorDatabase:
 
 
 # Global instance
-_vector_db: VectorDatabase | None = None
+_vector_db: VectorDatabase | InMemoryVectorDatabase | None = None
 
 
-def get_vector_db() -> VectorDatabase:
+def get_vector_db() -> VectorDatabase | InMemoryVectorDatabase:
     """Get or create the global vector database instance."""
     global _vector_db
     if _vector_db is None:
-        _vector_db = VectorDatabase()
+        try:
+            _vector_db = VectorDatabase()
+            print('Using Pinecone vector database')
+        except Exception as e:
+            print(f'Pinecone not available ({e}), falling back to in-memory database')
+            _vector_db = InMemoryVectorDatabase()
     return _vector_db
 
 
@@ -210,12 +289,27 @@ def generate_embedding(text: str) -> list[float]:
     """
     Generate embeddings for text using OpenAI.
 
-    In production, you might want to use a local embedding model or
-    a different provider for better performance/cost.
+    Falls back to random embeddings if OpenAI is not available.
     """
-    import openai
+    try:
+        import openai
 
-    client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-    response = client.embeddings.create(input=text, model='text-embedding-ada-002')
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            raise ValueError('OPENAI_API_KEY not set')
 
-    return response.data[0].embedding
+        client = openai.OpenAI(api_key=api_key)
+        response = client.embeddings.create(input=text, model='text-embedding-ada-002')
+        return response.data[0].embedding
+    except Exception as e:
+        print(f'OpenAI embedding not available ({e}), using random embeddings')
+        # Fallback: generate random embeddings for development
+        import hashlib
+        import random
+
+        # Use text hash to seed random number generator for consistency
+        seed = int(hashlib.md5(text.encode()).hexdigest(), 16) % (2**32)
+        random.seed(seed)
+
+        # Generate 1536-dimensional random embedding (same as text-embedding-ada-002)
+        return [random.uniform(-1, 1) for _ in range(1536)]

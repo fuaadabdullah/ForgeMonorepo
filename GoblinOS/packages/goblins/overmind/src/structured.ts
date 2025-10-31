@@ -8,10 +8,9 @@
  */
 
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
-import { litellm } from '../clients/litellm-proxy.js'
-import { chatOllamaStructured } from '../clients/ollama-native.js'
-import { chatOpenAI } from '../clients/ollama-openai.js'
-import { LLMProvider } from '../types.js'
+import { litellm } from './clients/litellm-proxy.js'
+import { chatOllamaStructured } from './clients/ollama-native.js'
+import { LLMProvider } from './types.js'
 
 /**
  * JSON Schema definition for structured outputs
@@ -214,7 +213,7 @@ async function generateWithOpenAI(
     )}\n\nDo not include any other text or explanation. Only return the JSON object.`,
   }
 
-  const response = await chatOpenAI({
+  const response = await litellm.chat({
     messages: [systemMessage, ...messages],
     model,
     temperature,

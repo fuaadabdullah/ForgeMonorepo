@@ -6,7 +6,6 @@ This module provides automated security fix generation, risk assessment,
 and approval workflows for security findings.
 """
 
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum

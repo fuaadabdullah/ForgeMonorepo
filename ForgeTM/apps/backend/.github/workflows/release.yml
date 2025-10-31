@@ -1,0 +1,25 @@
+name: Release
+'on':
+  workflow_dispatch: {}
+  push:
+    tags:
+    - v*
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Deploy
+      run: ./scripts/deploy.sh staging
+      env:
+        ENVIRONMENT: STAGING
+  deploy-production:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Deploy
+      run: ./scripts/deploy.sh production
+      env:
+        ENVIRONMENT: PRODUCTION
+    needs:
+    - deploy-staging

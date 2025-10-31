@@ -42,9 +42,13 @@ export function initTracing(
     url: otlpEndpoint,
   })
 
+  // Some OpenTelemetry type packages may provide slightly different
+  // SpanProcessor shapes between versions. Cast to `any` here to avoid
+  // compile-time mismatches during triage; long-term we should align
+  // dependency versions or implement a thin adapter.
   const sdk = new NodeSDK({
     resource,
-    spanProcessors: [new BatchSpanProcessor(traceExporter)],
+    spanProcessors: [new BatchSpanProcessor(traceExporter) as unknown as any],
     instrumentations: [new HttpInstrumentation(), new ExpressInstrumentation()],
   })
 

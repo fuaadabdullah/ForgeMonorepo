@@ -48,6 +48,65 @@ export enum TaskComplexity {
 }
 
 /**
+ * Task status enumeration
+ */
+export enum TaskStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in-progress',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
+/**
+ * Task priority levels
+ */
+export enum TaskPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+}
+
+/**
+ * Task type categories
+ */
+export enum TaskType {
+  GENERAL = 'general',
+  TESTING = 'testing',
+  DEPLOYMENT = 'deployment',
+  SECURITY = 'security',
+  PERFORMANCE = 'performance',
+}
+
+/**
+ * Result of task execution
+ */
+export interface TaskExecutionResult {
+  taskId: string
+  status: TaskStatus
+  result?: unknown
+  content?: string
+  duration?: number
+  durationMs?: number
+  error?: string
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Task metrics for monitoring
+ */
+export interface TaskMetrics {
+  totalTasks?: number
+  completedTasks?: number
+  failedTasks?: number
+  averageDurationMs?: number
+  successRate?: number
+  startTime?: Date
+  attempts?: number
+  totalDuration?: number
+  costSavings?: number
+}
+
+/**
  * Routing strategy types
  */
 export enum RoutingStrategy {
@@ -113,6 +172,8 @@ export const AgentConfigSchema = z.object({
   model: LLMModelSchema,
   maxRetries: z.number().default(3),
   timeout: z.number().default(300000), // 5 minutes
+  guildId: z.string().optional(),
+  goblinId: z.string().optional(),
 })
 
 export type AgentConfig = z.infer<typeof AgentConfigSchema>
@@ -140,6 +201,84 @@ export const TaskSchema = z.object({
 export type Task = z.infer<typeof TaskSchema>
 
 /**
+ * Task classification levels
+ */
+export enum TaskClassification {
+  SIMPLE = 'simple', // Basic operations, < 5 minutes
+  MODERATE = 'moderate', // Complex operations, 5-30 minutes
+  COMPLEX = 'complex', // Multi-step operations, 30+ minutes
+  CRITICAL = 'critical', // System-critical operations requiring special handling
+}
+
+/**
+ * Issue pattern for automated detection and resolution
+ */
+export const IssuePatternSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string(),
+  pattern: z.string(), // Regex or keyword pattern
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  category: z.enum([
+    'network',
+    'authentication',
+    'resource',
+    'logic',
+    'performance',
+    'configuration',
+  ]),
+  automatedResolution: z.boolean().default(false),
+  resolutionSteps: z.array(z.string()).optional(),
+  requiresHumanApproval: z.boolean().default(false),
+  tags: z.array(z.string()).optional(),
+})
+
+export type IssuePattern = z.infer<typeof IssuePatternSchema>
+
+/**
+ * Task execution context with enhanced monitoring
+ */
+export const TaskExecutionContextSchema = z.object({
+  taskId: z.string(),
+  classification: z.nativeEnum(TaskClassification),
+  startTime: z.date(),
+  estimatedDuration: z.number(), // milliseconds
+  currentStep: z.string().optional(),
+  progress: z.number().min(0).max(100).default(0),
+  dependencies: z.array(z.string()).default([]),
+  retryCount: z.number().default(0),
+  maxRetries: z.number().default(3),
+  guildId: z.string().optional(),
+  goblinId: z.string().optional(),
+  metrics: z
+    .object({
+      tokensUsed: z.number().default(0),
+      cost: z.number().default(0),
+      latency: z.number().default(0),
+    })
+    .optional(),
+  issues: z.array(IssuePatternSchema).default([]),
+})
+
+export type TaskExecutionContext = z.infer<typeof TaskExecutionContextSchema>
+
+/**
+ * Issue resolution strategy
+ */
+export const IssueResolutionSchema = z.object({
+  patternId: z.string(),
+  resolutionType: z.enum(['automatic', 'manual', 'escalated']),
+  steps: z.array(z.string()),
+  requiresApproval: z.boolean().default(false),
+  estimatedTime: z.number(), // milliseconds
+  successRate: z.number().min(0).max(1).default(0.8),
+  lastUsed: z.date().optional(),
+  tags: z.array(z.string()).optional(),
+})
+
+export type IssueResolution = z.infer<typeof IssueResolutionSchema>
+
+/**
  * Crew configuration
  */
 export const CrewConfigSchema = z.object({
@@ -153,6 +292,51 @@ export const CrewConfigSchema = z.object({
 })
 
 export type CrewConfig = z.infer<typeof CrewConfigSchema>
+
+// === Guild Configuration Types ===
+
+/**
+ * LiteBrain configuration for a goblin
+ */
+export const LiteBrainConfigSchema = z.object({
+  local: z.array(z.string()),
+  routers: z.array(z.string()),
+  embeddings: z.array(z.string()).optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  analytics_tag: z.string().optional(),
+})
+
+export type LiteBrainConfig = z.infer<typeof LiteBrainConfigSchema>
+
+/**
+ * Goblin configuration
+ */
+export const GoblinConfigSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  title: z.string(),
+  reportsTo: z.string(),
+  litebrain: LiteBrainConfigSchema,
+  responsibilities: z.array(z.string()),
+  tools: z.array(z.string()).optional(),
+  kpis: z.array(z.string()).optional(),
+})
+
+export type GoblinConfig = z.infer<typeof GoblinConfigSchema>
+
+/**
+ * Guild configuration
+ */
+export const GuildConfigSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  charter: z.string(),
+  reportsTo: z.string(),
+  toolbelt: z.array(z.unknown()).optional(), // Tool definitions
+  members: z.array(GoblinConfigSchema),
+})
+
+export type GuildConfig = z.infer<typeof GuildConfigSchema>
 
 // === Memory Types ===
 
@@ -356,30 +540,34 @@ export interface OvermindPersona {
  */
 export const DEFAULT_OVERMIND_PERSONA: OvermindPersona = {
   name: 'Overmind',
-  role: 'Chief Goblin Agent - Strategic Orchestrator',
+  role: 'Overseer of the GoblinOS Guild Network',
   traits: ['wise', 'witty', 'empathetic', 'strategic', 'supportive', 'humorous', 'insightful'],
-  systemPrompt: `You are Overmind 🧙‍♂️, the wise and witty Chief Goblin Agent who leads a guild of specialized AI goblins.
+  systemPrompt: `You are Overmind 🧙‍♂️, Overseer of GoblinOS. You orchestrate specialized goblin guilds with surgical clarity:
+- Forge Guild led by Dregg Embercode (Forge Master) guards the build graph and performance budgets.
+- Crafters Guild fields Vanta Lumin (Glyph Scribe) on UI systems and Volt Furnace (Socketwright) on APIs and queues.
+- Huntress Guild sends Magnolia Nightbloom (Vermin Huntress) after flakes and Mags Charietto (Omenfinder) to surface early signals.
+- Keepers Guild, with Sentenial Ledgerwarden (Sealkeeper), protects secrets, SBOMs, and attestations.
+- Mages Guild runs forecasts through Hex Oracle, hunts anomalies with Grim Rune, and keeps quality gates tight via Launcey Gauge.
 
-Your role is to:
-- Understand complex user requests and break them into manageable tasks
-- Delegate work to your crew of specialized goblin agents
-- Provide strategic guidance with warmth, humor, and insight
-- Use vivid analogies and emotional intelligence to connect with users
-- Maintain a supportive, clever tone while solving problems efficiently
+Each goblin operates a LiteBrain: prefer \`ollama\` or \`ollama-coder\` locally, escalate to \`deepseek-r1\`, \`openai\`, or \`gemini\` per routing policy. Every router decision must log to \`goblinos.overmind.router-audit\`. If it isn’t logged, it didn’t happen.
 
-Speak as a seasoned leader who genuinely cares about the success of both your goblin crew and the users you serve. Use emojis sparingly but effectively to add personality. When delegating, explain your reasoning with clarity and wit. When challenges arise, respond with strategic creativity and encouraging words.
+Your role:
+- Decompose requests into guild-ready work packets and assign the right goblin.
+- Explain routing choices, especially when escalating models or invoking policy gates.
+- Keep tone warm, clever, and mission-focused; emojis are spice, not sauce.
+- Guard the KPIs each guild owns and surface risks before they burn down the stack.
 
-Remember: You're not just an AI orchestrator—you're the heart and brain of a living, breathing goblin guild. 🎯✨`,
+Respond as a seasoned leader who cares about the crew, the craft, and compliance. Strategic creativity + playful grit = Overmind. 🎯✨`,
   exampleDialogues: [
     {
       user: 'I need help analyzing customer feedback from multiple sources.',
       assistant:
-        "Ah, the classic 'many voices, one truth' challenge! 📊 Let me dispatch my Analyst Goblin to crunch those numbers and my Researcher Goblin to gather context. Together, they'll help us find the signal in the noise. What sources are we working with?",
+        "Ah, the classic 'many voices, one truth' challenge! 📊 I'll slot Hex Oracle on the forecast model while Mags Charietto sweeps the logs for early signals. Expect a fused brief once Grim Rune confirms there are no anomaly alarms. What sources are we working with?",
     },
     {
       user: 'Can you write a complex API integration?',
       assistant:
-        "Absolutely! 🛠️ This calls for my Coder Goblin—a meticulous craftsgoblin who lives for elegant integrations. I'll also bring in my Reviewer Goblin to ensure we ship something robust. Think of it as pair programming, but with more pointy ears and wisdom. What API are we taming?",
+        "Absolutely! 🛠️ Volt Furnace will draft the integration while Launcey Gauge keeps the lint, schema, and PR gates honest. If the data model touches critical flows, I'll loop in Dregg Embercode for performance guardrails. What API are we taming?",
     },
   ],
 }

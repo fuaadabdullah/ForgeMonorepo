@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { loadPlugins } from './plugins.js'
 
-export default async function run() {
+export default async function run(argv: string[] = process.argv): Promise<void> {
   const program = new Command()
   program.name('goblin').description('GoblinOS CLI').version('0.1.0')
 
@@ -48,8 +48,12 @@ export default async function run() {
           const status = await p.health()
           console.log(`• ${p.name}: ${status}`)
         }
+
+        // Parse the provided argv instead of process.argv to make the
+        // function testable and explicit.
+        await program.parseAsync(argv)
       }
     })
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) run()
+if (import.meta.url === `file://${process.argv[1]}`) run(process.argv)

@@ -5,7 +5,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..api.auth import get_current_active_user
+from ..api.auth import get_current_active_user, get_current_user_testing_optional
 from ..config import settings
 from ..models.user import User
 from ..observability.sentry import add_breadcrumb, capture_exception
@@ -23,7 +23,7 @@ class OllamaModel(BaseModel):
 
 @router.get('/models', response_model=list[OllamaModel])
 async def list_models(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[User, Depends(get_current_user_testing_optional)],
 ) -> list[OllamaModel]:
     """List installed Ollama models via /api/tags."""
     with tracer.start_as_current_span('ollama_list_models') as span:

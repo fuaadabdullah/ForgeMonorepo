@@ -56,6 +56,13 @@ If you prefer a manual run, activate your venv and run uvicorn:
 uvicorn forge.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+## Guild Runbook · Volt Furnace
+
+- **Configuration wizard** – Launch VS Code task **"⚙️ Volt: backend config wizard"** (runs `tools/config_backend.sh wizard`) to step through `.env` setup and validation.
+- **Deployment** – Use **"🚀 Volt: backend deploy (local)"** for a full environment bootstrap (venv, migrations, health check). Pass `docker` manually if targeting containers.
+- **Full maintenance sweep** – Run **"🧰 Volt: backend full check"** (`tools/maintain_backend.sh full-check`) before handoffs; includes health probe, resource check, and DB stats.
+- Keep the results logged in Overmind router audit (Huntress monitors) and note anomalies in the Crafters build plan.
+
 ## API Documentation
 
 Once running, visit:

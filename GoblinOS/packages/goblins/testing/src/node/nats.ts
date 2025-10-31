@@ -1,4 +1,9 @@
-import type { ConnectionOptions, NatsConnection, StreamConfig } from 'nats'
+// Short-term: avoid importing types from the `nats` package to prevent
+// resolution errors during triage. Use permissive `any` aliases here and
+// delegate runtime connection creation to the Overmind nats adapter.
+type ConnectionOptions = any
+type NatsConnection = any
+type StreamConfig = any
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers'
 
 export interface NatsOptions {
@@ -77,8 +82,13 @@ export class NatsTestcontainer {
 
   async getClient(): Promise<NatsConnection> {
     if (!this._connection) {
-      // Lazy import to avoid dependency when not used
-      const nats = await import('nats')
+      // Delegate to the overmind nats adapter which normalizes module shapes
+      // across different installs and bundlers. Use a dynamic import to keep
+      // the test helper lightweight when the adapter isn't needed.
+      // Use require at runtime to avoid TypeScript trying to include files
+      // from another package in the testing project's file list.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { connectNats } = require('../../../overmind/src/clients/nats-adapter.js')
 
       const connectionOptions: ConnectionOptions = {
         servers: this.getConnectionString(),
@@ -89,7 +99,7 @@ export class NatsTestcontainer {
         connectionOptions.pass = this.options.password
       }
 
-      this._connection = await nats.connect(connectionOptions)
+      this._connection = await connectNats(connectionOptions)
     }
     return this._connection
   }

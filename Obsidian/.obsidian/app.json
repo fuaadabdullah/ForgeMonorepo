@@ -1,0 +1,22 @@
+{
+  "promptDelete": false,
+  "attachmentFolderPath": "🖼️ Attachments",
+  "newFileLocation": "folder",
+  "newFileFolderPath": "📝 Inbox",
+  "readableLineLength": false,
+  "strictLineBreaks": false,
+  "showLineNumber": true,
+  "showFrontmatter": true,
+  "showInlineTitle": false,
+  "autoPairBrackets": true,
+  "autoPairMarkdown": true,
+  "smartIndentList": true,
+  "foldHeading": true,
+  "foldIndent": true,
+  "defaultViewMode": "source",
+  "alwaysUpdateLinks": true,
+  "useMarkdownLinks": false,
+  "showUnsupportedFiles": false,
+  "propertiesInDocument": "visible",
+  "newLinkFormat": "shortest"
+}

@@ -1,0 +1,116 @@
+name: '🕵️ Huntress Guild: Regression Check'
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'tests/**'
+      - '**/*test*'
+      - '**/*spec*'
+      - 'ForgeTM/apps/frontend/tests/**'
+      - 'ForgeTM/apps/backend/tests/**'
+      - 'GoblinOS/packages/goblins/**/test*/**'
+      - 'playwright.config.ts'
+      - 'pytest.ini'
+
+jobs:
+  regression-check:
+    name: 'Regression & Flaky Test Detection'
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'huntress/regression-check') || contains(github.event.pull_request.labels.*.name, 'guild:huntress')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          cd ForgeTM/apps/backend && python -m pip install --upgrade pip && pip install -e .[dev,test]
+
+      - name: Run unit tests
+        run: |
+          # Frontend unit tests
+          cd GoblinOS
+          pnpm test -- --coverage --watchAll=false
+
+          # Backend unit tests
+          cd ../ForgeTM/apps/backend
+          pytest tests/unit/ -v --tb=short --cov=src --cov-report=xml
+
+      - name: Run integration tests
+        run: |
+          # Backend integration tests
+          cd ForgeTM/apps/backend
+          pytest tests/integration/ -v --tb=short
+
+      - name: Run E2E tests
+        run: |
+          # Frontend E2E tests
+          cd ForgeTM/apps/frontend
+          pnpm test:e2e
+
+      - name: Flaky test detection
+        run: |
+          # Run tests multiple times to detect flakes
+          echo "Running flaky test detection..."
+
+          # Run backend tests 3 times
+          cd ForgeTM/apps/backend
+          for i in {1..3}; do
+            echo "Test run $i/3"
+            pytest tests/ --tb=line --maxfail=5 || echo "Test run $i failed"
+          done
+
+          # Run frontend tests 3 times
+          cd ../../GoblinOS
+          for i in {1..3}; do
+            echo "Frontend test run $i/3"
+            pnpm test -- --watchAll=false --verbose=false || echo "Frontend test run $i failed"
+          done
+
+      - name: Performance regression detection
+        run: |
+          # Check for performance regressions in test execution time
+          echo "Checking for test performance regressions..."
+          # Placeholder - would compare test execution times against baseline
+
+      - name: Log analysis
+        run: |
+          # Analyze test logs for patterns indicating issues
+          echo "Analyzing test logs for anomalies..."
+          # Placeholder - would scan logs for error patterns, timeouts, etc.
+
+      - name: Generate test report
+        run: |
+          echo "Test Results Summary:" > test-report.txt
+          echo "- Unit Tests: $(cd ForgeTM/apps/backend && python -m pytest tests/unit/ --collect-only | grep -c "test_") tests collected" >> test-report.txt
+          echo "- Integration Tests: $(cd ForgeTM/apps/backend && python -m pytest tests/integration/ --collect-only | grep -c "test_") tests collected" >> test-report.txt
+          echo "- E2E Tests: $(cd ForgeTM/apps/frontend && find tests -name "*.test.*" | wc -l) tests found" >> test-report.txt
+
+          cat test-report.txt
+
+      - name: Comment on PR
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚨 **Huntress Guild Regression Check Failed**\n\nTesting validation has failed. Please review:\n- Test failures\n- Flaky test detection\n- Performance regressions\n- Log anomalies\n\n@Magnolia Nightbloom (Vermin Huntress) & @Mags Charietto (Omenfinder) have been notified for investigation.'
+            })

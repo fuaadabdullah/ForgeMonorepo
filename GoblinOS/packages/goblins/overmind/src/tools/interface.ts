@@ -8,7 +8,6 @@
  */
 
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
-import { LLMProvider } from '../types'
 
 /**
  * Tool/function parameter schema using JSON Schema
@@ -144,7 +143,7 @@ export function validateToolArgs(
     }
 
     // Enum validation
-    if (paramSchema.enum && !paramSchema.enum.includes(value as string | number)) {
+    if (paramSchema.enum && !paramSchema.enum.includes(value as never)) {
       errors.push(`Invalid value for ${key}: must be one of ${paramSchema.enum.join(', ')}`)
     }
   }

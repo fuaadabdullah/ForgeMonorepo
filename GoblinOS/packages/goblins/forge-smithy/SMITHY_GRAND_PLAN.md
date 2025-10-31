@@ -4,6 +4,18 @@
 
 Smithy will evolve from a development environment management tool into a comprehensive, AI-powered automation platform that orchestrates the entire software development lifecycle. This grand plan outlines the transformation into a world-class system with advanced automation, AI agents, security, monitoring, and distributed capabilities.
 
+## Execution Phases & Status
+
+| Phase | Focus | Key Deliverables | Owner | Status |
+|-------|-------|------------------|-------|--------|
+| P0 — Stabilize | Baseline smithy CLI health, unblock packaging/tests, capture metrics | `smithy doctor/check` green, metrics snapshot logged | Smithy Core | ✅ Completed (2025-10-30) |
+| P1 — Automation Core | Event bus, triggers, scheduler MVP, router eval harness | `smithy.automation` package scaffolding, scheduler policies, router deterministic tests | Smithy + Overmind | ⏳ In flight (Week 1–4) |
+| P2 — Intelligence & Compliance | Specialized agents, security automation, memory privacy | Agent framework, compliance pipeline, memory retention policies | Smithy Core | ⏳ Planned |
+| P3 — Production Hardening | Observability, GitOps delivery, guardrails, release automation | OTel spans, Grafana dashboards, blue/green deploys, release pipeline | Smithy + Infra | ⏳ Planned |
+| P4 — Launch & Scale | Rollout + marketplace, distributed execution, RAG insights | Adoption playbook, plugin marketplace, telemetry-backed backlog | Product & DX | ⏳ Planned |
+
+> Detailed phase acceptance criteria live in `Obsidian/📋 Projects/GoblinOS/Smithy_Overmind_Finalization.md`.
+
 ## Current State Analysis
 
 ### Strengths
@@ -455,6 +467,93 @@ class SecurityScanner:
 - **Upgrade Pipelines**: Scheduled dependency bumps with automated PRs and test gating
 - **Reporting**: Weekly configuration and credential posture reports surfaced in dashboards
 
+## Phase 13: Autonomous Governance & Policy Ops (Weeks 49-52)
+
+### 13.1 Policy Ops Control Plane
+**Goal**: Close the loop between compliance results and automated remediation.
+
+**Components**:
+- **Real-Time Violations Board**: Cross-system view of policy breaches with severity scoring
+- **Autonomous Actions**: Configurable playbooks that open PRs, roll credentials, or quarantine systems
+- **Risk Heatmaps**: Aggregated scoring feeding exec dashboards and alerts
+- **Human-in-the-Loop**: Approval workflows with escalation trees and audit capture
+
+### 13.2 Budget & Cost Governance
+**Goal**: Ensure automations respect budget constraints at scale.
+
+**Features**:
+- **Cost Telemetry**: Connect automation runs to cloud/resource spend
+- **Budget Policies**: Thresholds that trigger reconfiguration or workflow throttling
+- **Optimization Recs**: AI agents propose cheaper alternatives or scheduling adjustments
+- **Chargeback Reports**: Allocate spend per team/project for transparency
+
+### 13.3 Continuous Threat Simulation
+**Goal**: Proactively validate security posture using autonomous exercises.
+
+**Deliverables**:
+- **Purple-Team Automations**: Scheduled adversarial simulations powered by security agents
+- **Safe Sandboxes**: Isolated environments mirroring prod configs for aggressive testing
+- **Learning Loop**: Feed findings back into scanners, policies, and remediation templates
+- **Metrics**: Track mean time to detect/respond during simulated incidents
+
+## Phase 14: Ecosystem Marketplace & Extensibility (Weeks 53-56)
+
+### 14.1 Marketplace Launch
+**Goal**: Enable community and partners to publish/install automation packs.
+
+**Components**:
+- **Package Registry**: Signed plugin bundles with compatibility metadata
+- **Review & Trust Scores**: Automated static analysis plus community ratings
+- **Revenue Sharing**: Optional billing hooks for paid plugins
+- **Instant Install**: smithy CLI command to browse/install/update packages
+
+### 14.2 Partner Integrations
+**Goal**: First-party packs for leading SaaS/dev tools.
+
+**Features**:
+- **Ticketing Bridges**: Jira, Linear, ServiceNow automations
+- **Observability Hooks**: Datadog, New Relic, Grafana integrations
+- **Cloud Provider Packs**: AWS/GCP/Azure runbooks and guardrails
+- **Data Pipelines**: Connectors for Snowflake, BigQuery, and lakehouses
+
+### 14.3 Developer Experience Kit v2
+**Goal**: Make authoring new automations as simple as building Terraform modules.
+
+**Deliverables**:
+- **smithy init automation** scaffolding
+- **Scenario Simulator**: Local harness to replay real telemetry/events
+- **Certification Tests**: Automated checks before marketplace submission
+- **Documentation Generator**: AI-assisted docs, diagrams, and tutorials
+
+## Phase 15: Self-Evolving Intelligence (Weeks 57-60)
+
+### 15.1 Autonomous Learning Loop
+**Goal**: Allow Smithy to improve policies, workflows, and prompts automatically.
+
+**Components**:
+- **Feedback Capture**: Embed thumbs-up/down + rationale into every automation output
+- **Auto-Retrain**: Periodic fine-tuning of prompts/models using approved data
+- **Prompt Versioning**: Track lineage, rollbacks, and A/B tests for agent prompts
+- **Safety Rails**: Guard policies ensuring autonomous changes require approval tiers
+
+### 15.2 Cross-Workspace Intelligence Sharing
+**Goal**: Let large orgs share learnings across business units without leaking secrets.
+
+**Features**:
+- **Federated Insights**: Aggregate anonymized metrics, best practices, and incidents
+- **Policy Blueprints**: Template export/import with dependency scanning
+- **Trust Zones**: Control which workspaces can exchange data and at what granularity
+- **Compliance Aware**: Ensure data sharing respects residency/privacy constraints
+
+### 15.3 North Star Metrics & Governance
+**Goal**: Maintain alignment between autonomous evolution and business objectives.
+
+**Deliverables**:
+- **Outcome KPIs**: Automation ROI, toil reduction, security posture trendlines
+- **Steering Committees**: Configurable governance boards with voting + audit logs
+- **What-if Simulation**: Model impact before enabling self-modifying automations
+- **Sunset Criteria**: Automatic retirement of unused workflows or plugins
+
 ## Implementation Roadmap
 
 ### Q1 2026: Foundation (Weeks 1-12)
@@ -472,10 +571,20 @@ class SecurityScanner:
 - Web dashboard
 - Advanced testing framework
 
-### Q4 2026: Intelligence & Resilience (Weeks 37-44)
+### Q4 2026: Intelligence & Resilience (Weeks 37-48)
 - Documentation system
 - Backup & recovery
-- Final integration and optimization
+- Configuration control & secrets governance
+
+### Q1 2027: Autonomous Governance (Weeks 49-56)
+- Policy ops control plane
+- Cost governance & partner marketplace launch
+- Developer experience kit v2
+
+### Q2 2027: Self-Evolving Intelligence (Weeks 57-60)
+- Autonomous learning loop
+- Cross-workspace intelligence sharing
+- Governance metrics & steering committees
 
 ## Success Metrics
 

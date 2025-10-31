@@ -1,5 +1,5 @@
 import { createNextApiHandler } from '@trpc/server/adapters/next';
-import { appRouter } from '../../../src/server/trpc';
+import { appRouter } from '../../../server/trpc';
 
 export default createNextApiHandler({
   router: appRouter,

@@ -9,16 +9,19 @@
  * @module clients/ollama-openai
  */
 
-import OpenAI from 'openai'
 import type {
   ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
 } from 'openai/resources/chat/completions'
+import { createOpenAIClient } from './openai-adapter.js'
 
 /**
  * Ollama client using OpenAI-compatible API
  */
-export const ollamaOpenAI = new OpenAI({
+// Cast OpenAI to `any` for triage: current installed types show OpenAI as a
+// namespace-like module without construct signatures. Use a local `any` cast
+// to allow triage-time construction while we implement a small adapter.
+export const ollamaOpenAI = createOpenAIClient({
   baseURL: process.env.OLLAMA_BASE_URL?.endsWith('/v1')
     ? process.env.OLLAMA_BASE_URL
     : `${process.env.OLLAMA_BASE_URL || 'http://localhost:11434'}/v1`,
@@ -51,7 +54,11 @@ export async function chatOllama(
 ) {
   const { temperature = 0.7, maxTokens = 4096, stream = true } = options
 
-  return await ollamaOpenAI.chat.completions.create({
+  // Cast to `any` here: we intentionally target the OpenAI-compatible
+  // endpoint served by Ollama, but the local `openai` types differ. Casting
+  // removes a strict type dependency during triage; we'll replace with a
+  // narrow adapter later.
+  return await (ollamaOpenAI as any).chat.completions.create({
     model,
     messages,
     temperature,
@@ -73,7 +80,7 @@ export async function chatOllamaSync(
 ) {
   const { temperature = 0.7, maxTokens = 4096 } = options
 
-  return await ollamaOpenAI.chat.completions.create({
+  return await (ollamaOpenAI as any).chat.completions.create({
     model,
     messages,
     temperature,
@@ -104,7 +111,7 @@ export async function listOllamaModels(): Promise<string[]> {
     const response = await fetch(`${baseURL}/api/tags`)
     if (!response.ok) return []
 
-    const data = await response.json()
+    const data: any = await response.json()
     const models = Array.isArray(data.models) ? data.models : []
     return models
       .map((m: unknown) => (m as Record<string, unknown>).name as string | undefined)
@@ -114,3 +121,6 @@ export async function listOllamaModels(): Promise<string[]> {
     return []
   }
 }
+
+// Backward-compatible alias expected by some modules
+export const chatOpenAI = chatOllama

@@ -1089,7 +1089,7 @@ class CrewAIAgent(BaseAgent):
                 execution_time=execution_time,
             )
 
-        except Exception as e:
+        except Exception:
             execution_time = time.time() - start_time
             self.update_performance_metrics(execution_time, False)
 

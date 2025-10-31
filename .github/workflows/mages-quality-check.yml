@@ -1,0 +1,104 @@
+name: '🔮 Mages Guild: Quality Check'
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'Obsidian/**'
+      - '**/*.md'
+
+jobs:
+  quality-check:
+    name: 'Code Quality Gates'
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'mages/quality-check') || contains(github.event.pull_request.labels.*.name, 'guild:mages')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          cd ForgeTM/apps/backend && python -m pip install --upgrade pip && pip install -e .[dev]
+
+      - name: Run linting
+        run: |
+          # Run all linters
+          bash tools/lint_all.sh
+
+      - name: Type checking
+        run: |
+          # TypeScript type checking
+          cd GoblinOS/packages/goblins/overmind/dashboard
+          pnpm type-check
+
+          # Python type checking
+          cd ../../../../ForgeTM/apps/backend
+          mypy src/ --ignore-missing-imports
+
+      - name: Run tests
+        run: |
+          # Unit tests
+          cd GoblinOS
+          pnpm test
+
+          # Backend tests
+          cd ../ForgeTM/apps/backend
+          pytest tests/ -v
+
+      - name: Documentation validation
+        run: |
+          # Check that code changes have corresponding documentation updates
+          # This is a placeholder - would need to implement logic to check
+          # if API changes have documentation updates
+          echo "Documentation validation would check for API doc updates"
+
+      - name: Schema validation
+        run: |
+          # Validate that schema changes are properly versioned
+          if [ -n "$(git diff --name-only HEAD~1 | grep -E '\.(json|yaml|yml)$')" ]; then
+            echo "Schema files changed - validating structure..."
+            # Placeholder for schema validation logic
+          fi
+
+      - name: Pre-commit hooks validation
+        run: |
+          # Ensure pre-commit hooks pass
+          pip install pre-commit
+          pre-commit run --all-files
+
+      - name: Quality metrics
+        run: |
+          # Generate quality metrics
+          echo "Code quality metrics:" > quality-report.txt
+          echo "- Test coverage: $(cd ForgeTM/apps/backend && python -m pytest --cov=src --cov-report=term-missing | grep TOTAL | awk '{print $4}')" >> quality-report.txt
+          echo "- TypeScript strict mode: Enabled" >> quality-report.txt
+          echo "- Linting: $(bash tools/lint_all.sh && echo 'Passed' || echo 'Failed')" >> quality-report.txt
+
+          cat quality-report.txt
+
+      - name: Comment on PR
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🚨 **Mages Guild Quality Check Failed**\n\nCode quality gates have failed. Please review:\n- Linting errors\n- Type checking failures\n- Test failures\n- Documentation updates\n- Schema validation\n\n@Launcey Gauge (Fine Spellchecker) has been notified for review.'
+            })

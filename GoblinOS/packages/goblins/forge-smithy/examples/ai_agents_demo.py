@@ -7,6 +7,7 @@ for automated tasks using the smithy automation framework.
 """
 
 import asyncio
+import importlib.util
 import os
 
 from smithy.automation import (
@@ -209,11 +210,9 @@ async def simple_fallback_demo():
 
 
 if __name__ == "__main__":
-    # Check if CrewAI is available
-    try:
-        import crewai
-
+    crewai_available = importlib.util.find_spec("crewai") is not None
+    if crewai_available:
         asyncio.run(main())
-    except ImportError:
+    else:
         print("⚠️  CrewAI not available, running basic demo...")
         asyncio.run(simple_fallback_demo())

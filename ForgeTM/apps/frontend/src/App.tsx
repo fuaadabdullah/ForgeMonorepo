@@ -1,85 +1,180 @@
-import { LoginForm } from './components/LoginForm';
-import { OllamaModelPanel } from './components/OllamaModelPanel';
-import { ProvidersHealthPanel } from './components/ProvidersHealthPanel';
-import { RAGExplorerPanel } from './components/RAGExplorerPanel';
-import { RegisterForm } from './components/RegisterForm';
-import { RoutingAnalyticsPanel } from './components/RoutingAnalyticsPanel';
-import { useAuth } from './contexts/AuthContext';
-import { useOllamaModels } from './hooks/useOllamaModels';
-import { useProviderHealth } from './hooks/useProviderHealth';
-import { usePullModel } from './hooks/usePullModel';
-import { useRoutingAnalytics } from './hooks/useRoutingAnalytics';
-import { PullModelRequest } from './lib/types';
+import './styles.css';
+import { ThemeToggle } from './components/ThemeToggle';
 
 export default function App() {
-  const { isAuthenticated, user, logout, isLoading } = useAuth();
-  const healthQuery = useProviderHealth();
-  const modelsQuery = useOllamaModels();
-  const pullModelMutation = usePullModel(modelsQuery.refetch);
-  const routingAnalyticsQuery = useRoutingAnalytics();
-
-  const handlePullModel = async (payload: PullModelRequest) => {
-    await pullModelMutation(payload);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="app-shell">
-        <div className="loading">Loading...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="app-shell">
-        <header>
-          <h1>ForgeTM Model Manager</h1>
-          <p>AI Model Management Platform</p>
-        </header>
-        <main className="auth-container">
-          <div className="auth-forms">
-            <div className="auth-form">
-              <h2>Login</h2>
-              <LoginForm />
-            </div>
-            <div className="auth-form">
-              <h2>Register</h2>
-              <RegisterForm />
-            </div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
   return (
-    <div className="app-shell">
-      <header>
-        <div className="header-content">
-          <div>
-            <h1>ForgeTM Model Manager</h1>
-            <p>Monitor providers, manage local Ollama models, and analyze routing decisions.</p>
+    <div className="app-layout">
+      {/* Global Left Rail */}
+      <nav className="global-nav">
+        <div className="global-nav-item active" title="Dashboard">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+          </svg>
+        </div>
+        <div className="global-nav-item" title="ForgeTM">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+        </div>
+        <div className="global-nav-item" title="GoblinOS">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+        </div>
+        <div className="global-nav-item" title="Vault">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm3 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/>
+          </svg>
+        </div>
+        <div className="global-nav-item" title="Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+          </svg>
+        </div>
+      </nav>
+
+      {/* Contextual Second Rail */}
+      <aside className="contextual-nav">
+        <div className="contextual-nav-header">
+          <h3>Trading Platform</h3>
+        </div>
+
+        <div className="contextual-nav-section">
+          <h4>Markets</h4>
+          <div className="contextual-nav-item active">
+            <div className="contextual-nav-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <span>Dashboard</span>
           </div>
-          <div className="user-info">
-            <span>Welcome, {user?.username}!</span>
-            <button onClick={logout} className="logout-btn">Logout</button>
+          <div className="contextual-nav-item">
+            <div className="contextual-nav-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>
+              </svg>
+            </div>
+            <span>Analytics</span>
+          </div>
+          <div className="contextual-nav-item">
+            <div className="contextual-nav-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 7h-3V6a3 3 0 0 0-3-3H5a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-9a3 3 0 0 0-3-3zM5 4h8a1 1 0 0 1 1 1v1H5a1 1 0 0 1 0-2zm15 16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14z"/>
+              </svg>
+            </div>
+            <span>Positions</span>
           </div>
         </div>
+
+        <div className="contextual-nav-section">
+          <h4>AI Models</h4>
+          <div className="contextual-nav-item">
+            <div className="contextual-nav-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+              </svg>
+            </div>
+            <span>Models</span>
+          </div>
+          <div className="contextual-nav-item">
+            <div className="contextual-nav-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+            <span>Training</span>
+          </div>
+          <div className="contextual-nav-item">
+            <div className="contextual-nav-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+              </svg>
+            </div>
+            <span>Logs</span>
+          </div>
+        </div>
+
+        <div className="contextual-nav-section">
+          <h4>Queues</h4>
+          <div className="contextual-nav-item">
+            <div className="contextual-nav-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>
+              </svg>
+            </div>
+            <span>Job Queue</span>
+          </div>
+          <div className="contextual-nav-item">
+            <div className="contextual-nav-item-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <span>Completed</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Top App Bar */}
+      <header className="top-app-bar">
+        <div className="top-app-bar-left">
+          <div className="command-palette">
+            <input
+              type="text"
+              className="command-input"
+              placeholder="Search commands, models, markets..."
+            />
+          </div>
+        </div>
+        <div className="top-app-bar-right">
+          <div className="session-indicators">
+            <div className="session-indicator" title="API Status"></div>
+            <div className="session-indicator warning" title="Queue Backlog"></div>
+            <div className="session-indicator" title="Model Health"></div>
+          </div>
+          <ThemeToggle />
+          <button className="global-nav-item" title="Notifications">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>
+            </svg>
+          </button>
+          <button className="global-nav-item" title="User Menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </button>
+        </div>
       </header>
-      <main>
-        <section>
-          <ProvidersHealthPanel query={healthQuery} />
-        </section>
-        <section>
-          <OllamaModelPanel query={modelsQuery} onPull={handlePullModel} />
-        </section>
-        <section>
-          <RoutingAnalyticsPanel query={routingAnalyticsQuery as any} />
-        </section>
-        <section>
-          <RAGExplorerPanel />
-        </section>
+
+      {/* Main Content Area */}
+      <main className="main-content">
+        <div className="main-content-grid">
+          <section className="content-section">
+            <h2>Welcome to ForgeTM</h2>
+            <p>
+              The ForgeTM user experience is managed from the GoblinOS Overmind dashboard.
+              Launch Overmind to orchestrate guild operations, trading telemetry, and AI routing from one control surface.
+            </p>
+            <div style={{ marginTop: 'var(--space-4)' }}>
+              <p>
+                <strong>Start Overmind:</strong>
+              </p>
+              <pre style={{
+                background: 'rgba(30, 41, 59, 0.5)',
+                padding: 'var(--space-2)',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                overflow: 'auto'
+              }}>
+                <code>pnpm -C GoblinOS/packages/goblins/overmind/dashboard dev</code>
+              </pre>
+              <p>
+                Once running, sign in at <code>/auth/login</code>, then explore the Forge Guild control center at <code>/forge</code> or the trading console at <code>/trading</code>.
+              </p>
+            </div>
+          </section>
+        </div>
       </main>
     </div>
   );

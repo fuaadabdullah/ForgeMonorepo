@@ -3,12 +3,21 @@
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
+    "dev": "concurrently -n backend,frontend,tauri -c blue,magenta,green \"bash ./tools/dev-backend.sh\" \"pnpm -C GoblinOS/packages/goblins/overmind/dashboard dev\" \"pnpm tauri:dev\"",
+    "dev:frontend": "pnpm -C GoblinOS/packages/goblins/overmind/dashboard dev",
     "postinstall": "pnpm -C GoblinOS install --ignore-scripts",
     "check": "pnpm -C GoblinOS check",
     "build": "pnpm -C GoblinOS build",
     "test": "pnpm -C GoblinOS test",
-    "smithy": "pnpm -C GoblinOS smithy",
-    "smithy:deps": "pnpm -C GoblinOS smithy:deps",
-    "smithy:biome": "pnpm -C GoblinOS smithy:biome"
+    "forge-guild": "pnpm -C GoblinOS forge-guild",
+    "forge-guild:deps": "pnpm -C GoblinOS forge-guild:deps",
+    "forge-guild:biome": "pnpm -C GoblinOS forge-guild:biome",
+    "tauri:dev": "pnpm -C GoblinOS/packages/goblins/overmind/dashboard exec tauri dev",
+    "tui": "pnpm -C tools/tui-node start",
+    "tui:node": "pnpm -C tools/tui-node start",
+    "tui:py": "python tools/tui/goblin_tui.py --config tools/tui/config.json"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
   }
 }

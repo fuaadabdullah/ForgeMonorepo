@@ -1,0 +1,23 @@
+{
+  "name": "@goblinos/crafters-guild",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Crafters Guild CLI - Automations for UI systems, backend schemas, and deployment runbooks",
+  "main": "dist/index.js",
+  "bin": {
+    "crafters-guild": "./bin/crafters-guild"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@goblinos/shared": "workspace:*",
+    "@goblinos/registry": "workspace:*",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -91,7 +91,10 @@ export async function embed(
   let vector: EmbeddingVector
 
   if (provider === 'ollama') {
-    vector = await embedOllama(text, model)
+    // embedOllama may return either a single vector or a batch; cast to
+    // EmbeddingVector for the triage pass and normalize later with a
+    // proper typed adapter.
+    vector = (await embedOllama(text, model)) as any as EmbeddingVector
   } else {
     // OpenAI via LiteLLM
     const result = await embedLiteLLM(text, { taskType: 'rag' })

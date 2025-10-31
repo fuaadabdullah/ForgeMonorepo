@@ -1,0 +1,40 @@
+{
+  "new-note-template": "🔄 Workflows/Workflows/Feature_Development_Lifecycle_Template.md",
+  "new-note-folder": "📋 Projects",
+  "archive-with-date": true,
+  "archive-folder": "📅 Planning/Archive",
+  "archive-file": "{{date:YYYY-MM-DD}} - {{title}}",
+  "show-archive-button": true,
+  "show-add-list-button": true,
+  "show-view-as-markdown-button": true,
+  "show-board-settings-button": true,
+  "show-search-button": true,
+  "show-clear-filters-button": true,
+  "lane-width": 250,
+  "max-items": 50,
+  "hide-card-count": false,
+  "hide-lanes": [],
+  "hide-items": [],
+  "hide-date": [],
+  "hide-tags": [],
+  "metadata-keys": [
+    {
+      "metadataKey": "status",
+      "label": "Status",
+      "shouldHideLabel": false,
+      "containsMarkdown": false
+    },
+    {
+      "metadataKey": "priority",
+      "label": "Priority",
+      "shouldHideLabel": false,
+      "containsMarkdown": false
+    },
+    {
+      "metadataKey": "assignee",
+      "label": "Assignee",
+      "shouldHideLabel": false,
+      "containsMarkdown": false
+    }
+  ]
+}

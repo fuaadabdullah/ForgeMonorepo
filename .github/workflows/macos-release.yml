@@ -1,0 +1,107 @@
+name: macOS build, sign, notarize and release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    name: Build (macOS) and Create Release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Build frontend
+        run: |
+          cd ForgeTM/apps/frontend
+          pnpm install
+          pnpm build
+
+      - name: Install project deps
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Build Tauri app (macOS)
+        env:
+          TAURI_PRIVATE: 'true'
+        run: |
+          # build the Tauri macOS app (this will produce .app under src-tauri/target/release/bundle/macos)
+          pnpm -w build --if-present || true
+          pnpm -C GoblinOS/packages/goblins/overmind/dashboard exec -- pnpm build --if-present || true
+          # run the tauri bundler from the dashboard package
+          pnpm -C GoblinOS/packages/goblins/overmind/dashboard exec -- tauri build
+
+      - name: Prepare signing certificate
+        if: ${{ secrets.CERT_P12 && secrets.CERT_P12_PASSWORD }}
+        env:
+          CERT_P12: ${{ secrets.CERT_P12 }}
+          CERT_P12_PASSWORD: ${{ secrets.CERT_P12_PASSWORD }}
+        run: |
+          echo "$CERT_P12" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p actions build.keychain
+          security import /tmp/cert.p12 -k ~/Library/Keychains/build.keychain -P "$CERT_P12_PASSWORD" -T /usr/bin/codesign || true
+          security list-keychains -s ~/Library/Keychains/build.keychain
+          security default-keychain -s ~/Library/Keychains/build.keychain
+          security unlock-keychain -p actions ~/Library/Keychains/build.keychain
+
+      - name: Codesign and notarize (example)
+        env:
+          APP_NAME: GoblinOS\ Hub
+          APP_BUNDLE_PATH: ./GoblinOS/packages/goblins/overmind/dashboard/src-tauri/target/release/bundle/macos/GoblinOS\ Hub.app
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_ISSUER_ID: ${{ secrets.APPLE_ISSUER_ID }}
+        run: |
+          # Zip the .app for upload/notarize
+          if [ -d "$APP_BUNDLE_PATH" ]; then
+            ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE_PATH" "${APP_BUNDLE_PATH%/}.zip"
+            echo "Zipped: ${APP_BUNDLE_PATH%/}.zip"
+          else
+            echo "App bundle not found at $APP_BUNDLE_PATH" && exit 1
+          fi
+
+          # If Apple API key provided, use notarytool (preferred)
+          if [[ -n "${APPLE_API_KEY:-}" ]]; then
+            echo "$APPLE_API_KEY" | base64 --decode > /tmp/AuthKey.p8
+            xcrun notarytool submit --key /tmp/AuthKey.p8 --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_ISSUER_ID" --wait "${APP_BUNDLE_PATH%/}.zip"
+            xcrun stapler staple "$APP_BUNDLE_PATH"
+          else
+            echo "No Apple API key provided; skip notarization. Set APPLE_API_KEY(secret) in repository secrets."
+          fi
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./GoblinOS/packages/goblins/overmind/dashboard/src-tauri/target/release/bundle/macos/GoblinOS\ Hub.app
+          asset_name: GoblinOS-Hub-macos.app
+          asset_content_type: application/octet-stream

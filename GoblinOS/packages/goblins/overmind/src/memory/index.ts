@@ -13,7 +13,6 @@ import type {
   Entity,
   Episode,
   MemoryConfig,
-  MemoryEntry,
   MemoryQuery,
   MemorySearchResult,
   MemoryStats,
@@ -83,14 +82,15 @@ export class MemoryManager {
    * Store temporary task context
    */
   setContext(key: string, value: string, metadata?: Record<string, unknown>): void {
-    this.working.set(key, value, metadata)
+    this.working.set(key, value, MemoryImportance.MEDIUM, metadata)
   }
 
   /**
    * Get task context
    */
   getContext(key: string): string | null {
-    return this.working.get(key)
+    const value = this.working.get(key)
+    return typeof value === 'string' ? value : null
   }
 
   /**

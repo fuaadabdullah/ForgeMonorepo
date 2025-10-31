@@ -2,6 +2,7 @@ import { Context } from '@temporalio/activity'
 import axios from 'axios'
 
 const MEMORY_API_URL = process.env.MEMORY_API_URL || 'http://localhost:8000'
+const BACKEND_API_URL = process.env.BACKEND_API_URL || 'http://127.0.0.1:8001'
 
 export interface Memory {
   id: string
@@ -203,5 +204,21 @@ export async function notifyConsolidationComplete(params: {
   })
 
   // In production, send to monitoring/alerting system
-  // For now, just log
+  // For now, attempt to POST to the backend notifications endpoint so the UI can surface an OS-level notification.
+  try {
+    const payload = {
+      title: 'Consolidation complete',
+      body: `Short: ${params.shortTermConsolidated}, Long: ${params.longTermConsolidated}, Expired: ${params.expired} (duration: ${params.duration}ms)`,
+      level: 'info',
+    }
+
+    const headers: Record<string, string> = {}
+    if (process.env.NOTIFICATIONS_SECRET) {
+      headers['x-notify-secret'] = process.env.NOTIFICATIONS_SECRET
+    }
+
+    await axios.post(`${BACKEND_API_URL}/api/notifications`, payload, { headers })
+  } catch (error) {
+    logger.warn('Failed to POST consolidation notification', { error })
+  }
 }

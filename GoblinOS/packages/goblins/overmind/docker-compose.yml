@@ -33,7 +33,7 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OLLAMA_BASE_URL=http://ollama:11434
-      - SMITHY_SERVICE_URL=http://smithy:8002
+      - FORGE_GUILD_SERVICE_URL=http://forge-guild:8002
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
       - LOG_LEVEL=info
     depends_on:
@@ -43,12 +43,12 @@ services:
       - overmind
     restart: unless-stopped
 
-  # Smithy (Forge Guild environment goblin)
-  smithy:
+  # Forge Guild (environment goblin led by Dregg Ember)
+  forge-guild:
     build:
       context: ../../../packages/goblins/forge-smithy
       dockerfile: Dockerfile
-    container_name: overmind-smithy
+    container_name: overmind-forge-guild
     ports:
       - "8002:8002"
     environment:

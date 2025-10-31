@@ -32,6 +32,10 @@ pre-commit:
       glob: "*.{ts}"
       run: pnpm check
 
+    guild-ownership:
+      glob: "goblins.yaml"
+      run: bash ../../tools/validate_guild_ownership.sh
+
 pre-push:
   parallel: true
   commands:
@@ -46,6 +50,9 @@ pre-push:
 
     clone:
       run: pnpm clone:check
+
+    guild-ownership-full:
+      run: bash ../../tools/validate_guild_ownership.sh
 
 commit-msg:
   commands:

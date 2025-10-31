@@ -3,7 +3,7 @@ import { Brain, Database, FileText, Users } from 'lucide-react'
 import type { ElementType } from 'react'
 
 export default function MemoryPage() {
-  const { stats, isLoading } = useMemory()
+  const { stats, isLoading, isFallback } = useMemory()
 
   if (isLoading || !stats) {
     return (
@@ -18,6 +18,14 @@ export default function MemoryPage() {
       <header className="flex h-16 items-center justify-between border-b border-border px-6">
         <h2 className="text-2xl font-bold">Memory</h2>
       </header>
+
+      {isFallback && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm text-amber-200">
+          <div className="mx-auto flex max-w-6xl items-center gap-2">
+            Offline snapshot shown — live memory service is currently unreachable.
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-6xl space-y-6">

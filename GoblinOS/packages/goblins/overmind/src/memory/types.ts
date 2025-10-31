@@ -9,7 +9,6 @@
  */
 
 import { z } from 'zod'
-import type { Message } from '../types.js'
 
 // ============================================================================
 // Memory Entry Types
@@ -194,6 +193,7 @@ export interface MemoryStats {
     entities: number
     episodes: number
     dbSizeMB: number
+    totalEntries?: number
   }
   vectorStore: {
     enabled: boolean

@@ -1,0 +1,327 @@
+overmind:
+  name: Overmind
+  title: Overseer
+  litebrain:
+    local: [ollama, ollama-coder]
+    routers: [openai, gemini, deepseek-r1]
+    embeddings: nomic-embed-text
+  telemetry:
+    router_audit_topic: goblinos.overmind.router-audit
+    policy_gates: true
+  pr_gates:
+    - keepers/sentenial-check
+    - mages/quality-check
+    - crafters/ui-a11y-check
+    - forge/perf-benchmark
+
+guilds:
+  - id: forge
+    name: Forge
+    charter: >
+      Dregg Embercode drives the core logic graph, governs performance budgets,
+      and owns break-glass fixes for the stack.
+    reportsTo: overmind
+    toolbelt:
+      - id: forge-guild-cli
+        name: Forge Guild CLI
+        command: pnpm forge-guild
+        summary: Run Forge Master hygiene operations (doctor/check/biome/deps/secrets).
+        owner: dregg-embercode
+        docs: tools/AGENT_TOOLS.md
+      - id: kill-port
+        name: Kill Port
+        command: tools/scripts/kill-port.sh
+        summary: Break-glass utility to clear hung dev servers quickly.
+        owner: dregg-embercode
+        docs: tools/AGENT_TOOLS.md
+      - id: worldclass-debugger
+        name: WorldClass Debugger
+        command: tools/worldclass_debugger.sh
+        summary: Multi-mode developer debugging helper (audit/probe/jobs) for fast triage.
+        owner: dregg-embercode
+        docs: tools/worldclass_debugger.md
+        args:
+          - name: mode
+            type: enum
+            description: "Mode of operation: audit (lint+type checks), probe (smoke probes), jobs (query jobs endpoint)"
+            default: audit
+            options: [audit, probe, jobs]
+    members:
+      - id: dregg-embercode
+        name: Dregg Embercode
+        title: Forge Master
+        reportsTo: overmind
+        litebrain:
+          local: [ollama]
+          routers: [deepseek-r1]
+          embeddings: nomic-embed-text
+          temperature: 0.1
+          analytics_tag: forge-core
+        responsibilities:
+          - Build graph guardianship
+          - Performance budgets & perf regression response
+          - Break-glass ownership
+        kpis:
+          - p95_build_time
+          - hot_reload_time
+          - failed_build_rate
+        tools:
+          - forge-guild-cli
+          - kill-port
+
+  - id: crafters
+    name: Crafters
+    charter: >
+      The Crafters Guild owns the full UX surface area and service contracts—
+      the glyphs, sockets, schemas, and queues wiring the forge to everything else.
+    reportsTo: overmind
+    toolbelt:
+      - id: ensure-pnpm
+        name: Ensure pnpm
+        command: tools/scripts/ensure-pnpm.sh
+        summary: Guard UI builds by validating pnpm availability.
+        owner: vanta-lumin
+        docs: tools/AGENT_TOOLS.md
+      - id: config-backend
+        name: Backend Config Wizard
+        command: tools/config_backend.sh
+        summary: Update and validate ForgeTM backend environment configuration.
+        owner: volt-furnace
+        docs: tools/AGENT_TOOLS.md
+      - id: deploy-backend
+        name: Backend Deploy
+        command: tools/deploy_backend.sh
+        summary: Deploy ForgeTM backend with migrations and env checks.
+        owner: volt-furnace
+        docs: tools/AGENT_TOOLS.md
+        args:
+          - name: target
+            type: enum
+            description: Deployment target environment for backend services.
+            default: local
+            options: [local, docker]
+      - id: maintain-backend
+        name: Backend Maintenance
+        command: tools/maintain_backend.sh
+        summary: Run lifecycle tasks (backups, migrations, cleanup) for ForgeTM backend.
+        owner: volt-furnace
+        docs: tools/AGENT_TOOLS.md
+        args:
+          - name: task
+            type: enum
+            description: Maintenance task to execute via maintain_backend.sh.
+            required: true
+            options: [db_backup, db_migrate, cleanup_cache]
+    members:
+      - id: vanta-lumin
+        name: Vanta Lumin
+        title: Glyph Scribe
+        reportsTo: crafters
+        litebrain:
+          local: [ollama]
+          routers: [deepseek-r1]
+        responsibilities:
+          - UI systems & theme tokens
+          - Accessibility conformance
+          - CLS and LCP budgets
+        tools:
+          - ensure-pnpm
+      - id: volt-furnace
+        name: Volt Furnace
+        title: Socketwright
+        reportsTo: crafters
+        litebrain:
+          local: [ollama-coder]
+          routers: [deepseek-r1]
+          temperature: 0.2
+          analytics_tag: crafters-backend
+        responsibilities:
+          - API & schema health
+          - Queue topology & idempotency
+          - Error budget enforcement
+        tools:
+          - config-backend
+          - deploy-backend
+          - maintain-backend
+
+  - id: huntress
+    name: Huntress
+    charter: >
+      Huntress agents stalk flaky gremlins, surface early warnings, and keep incident
+      breadcrumbs ready for the rest of the guilds.
+    reportsTo: overmind
+    toolbelt:
+      - id: kubecost-smoke
+        name: Kubecost Smoke Probe
+        command: tools/smoke.sh
+        summary: Run platform availability probe and log incidents to router audit.
+        owner: magnolia-nightbloom
+        docs: tools/AGENT_TOOLS.md
+    members:
+      - id: magnolia-nightbloom
+        name: Magnolia Nightbloom
+        title: Vermin Huntress
+        reportsTo: huntress
+        litebrain:
+          local: [ollama-coder]
+          routers: [openai]
+          temperature: 0.3
+          analytics_tag: signal-scouting
+        responsibilities:
+          - Flaky detection & elimination
+          - Regression triage
+          - Incident tagging taxonomy
+        tools:
+          - kubecost-smoke
+          - worldclass-debugger
+      - id: mags-charietto
+        name: Mags Charietto
+        title: Omenfinder
+        reportsTo: huntress
+        litebrain:
+          local: [ollama-coder]
+          routers: [gemini]
+          temperature: 0.3
+          analytics_tag: signal-scouting
+        responsibilities:
+          - Early signal scouting
+          - Log mining & trend surfacing
+          - Signal precision metrics
+
+  - id: keepers
+    name: Keepers
+    charter: >
+      Keepers lock down the vault—secrets, SBOMs, licenses, attestations, and backups
+      all flow through Sentenial Ledgerwarden.
+    reportsTo: overmind
+    toolbelt:
+      - id: api-keys-check
+        name: API Keys Audit
+        command: tools/api_keys_check.sh
+        summary: Ensure .env docs and examples list required secrets.
+        owner: sentenial-ledgerwarden
+        docs: tools/AGENT_TOOLS.md
+      - id: security-check
+        name: Security Compliance Check
+        command: tools/security_check.sh
+        summary: Verify Trivy, Cosign, SOPS tooling and scan Docker artifacts.
+        owner: sentenial-ledgerwarden
+        docs: tools/AGENT_TOOLS.md
+      - id: secrets-manage
+        name: Secrets Playbook
+        command: tools/secrets_manage.sh
+        summary: Guide secret handling operations for Smithy integration.
+        owner: sentenial-ledgerwarden
+        docs: tools/AGENT_TOOLS.md
+      - id: disk-consolidation
+        name: Disk Consolidation
+        command: tools/disk_consolidation.sh
+        summary: Archive backups and resize disks safely.
+        owner: sentenial-ledgerwarden
+        docs: tools/AGENT_TOOLS.md
+      - id: space-saver
+        name: Space Saver
+        command: tools/space_saver.sh
+        summary: Archive heavy caches and virtual environments.
+        owner: sentenial-ledgerwarden
+        docs: tools/AGENT_TOOLS.md
+      - id: system-clean
+        name: System Clean
+        command: tools/system_clean.sh
+        summary: System-level cache purge with archival safety.
+        owner: sentenial-ledgerwarden
+        docs: tools/AGENT_TOOLS.md
+      - id: storage-cleanup
+        name: Storage Cleanup
+        command: tools/storage_cleanup.sh
+        summary: Lightweight weekly cache cleanup routine.
+        owner: sentenial-ledgerwarden
+        docs: tools/AGENT_TOOLS.md
+    members:
+      - id: sentenial-ledgerwarden
+        name: Sentenial Ledgerwarden
+        title: Sealkeeper
+        reportsTo: keepers
+        litebrain:
+          local: [ollama]
+          routers: [deepseek-r1]
+          embeddings: nomic-embed-text
+          temperature: 0.2
+          analytics_tag: vault-guard
+        responsibilities:
+          - Secrets rotation
+          - Artifact signing & SBOM integrity
+          - Backup drills & restore attestations
+        tools:
+          - api-keys-check
+          - security-check
+          - secrets-manage
+          - disk-consolidation
+          - space-saver
+          - system-clean
+          - storage-cleanup
+
+  - id: mages
+    name: Mages
+    charter: >
+      Mages project futures, chase anomalies, and keep the spellbook (tests, lint,
+      schemas) pristine.
+    reportsTo: overmind
+    toolbelt:
+      - id: lint-all
+        name: Lint & Quality Suite
+        command: tools/lint_all.sh
+        summary: Run monorepo lint umbrella (Biome, mypy, security checks).
+        owner: launcey-gauge
+        docs: tools/AGENT_TOOLS.md
+      - id: validate-vault
+        name: Forge Vault Validation
+        command: tools/validate_forge_vault.sh
+        summary: Validate Obsidian vault dashboards, templates, and scripts.
+        owner: hex-oracle
+        docs: tools/AGENT_TOOLS.md
+    members:
+      - id: hex-oracle
+        name: Hex Oracle
+        title: Forecasting Fiend
+        reportsTo: mages
+        litebrain:
+          local: [ollama]
+          routers: [deepseek-r1]
+          temperature: 0.2
+          analytics_tag: mages-analysis
+        responsibilities:
+          - Release risk scoring
+          - Incident likelihood forecasts
+          - Capacity modeling
+        tools:
+          - validate-vault
+      - id: grim-rune
+        name: Grim Rune
+        title: Glitch Whisperer
+        reportsTo: mages
+        litebrain:
+          local: [ollama-coder]
+          routers: [deepseek-r1]
+          temperature: 0.15
+          analytics_tag: mages-analysis
+        responsibilities:
+          - Anomaly detection across metrics/logs/traces
+          - Automated ticket generation
+          - Alert precision & recall tuning
+      - id: launcey-gauge
+        name: Launcey Gauge
+        title: Fine Spellchecker
+        reportsTo: mages
+        litebrain:
+          local: [ollama]
+          routers: [deepseek-r1]
+          temperature: 0.2
+          analytics_tag: mages-analysis
+        responsibilities:
+          - Lint/test/schema gates
+          - Diátaxis conformance reviews
+          - PR gate upkeep
+        tools:
+          - lint-all
+          - worldclass-debugger

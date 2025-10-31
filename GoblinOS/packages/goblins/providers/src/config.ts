@@ -14,7 +14,7 @@ export const ProviderConfigSchema = z.object({
   defaultModel: z.string().default('gpt-4-turbo'),
 
   /** Fallback models in priority order */
-  fallbackModels: z.array(z.string()).default(['gemini-pro', 'ollama-local']),
+  fallbackModels: z.array(z.string()).default(['deepseek-r1', 'gpt-4-turbo', 'gemini-pro']),
 
   /** Maximum retries per model */
   maxRetries: z.number().int().positive().default(3),
@@ -73,12 +73,40 @@ export const MODEL_METADATA: Record<string, ModelMetadata> = {
     outputCostPer1kTokens: 0.0028,
     avgLatencyMs: 1200,
   },
+  'deepseek-r1': {
+    provider: 'deepseek',
+    model: 'deepseek-r1',
+    inputCostPer1kTokens: 0.002,
+    outputCostPer1kTokens: 0.004,
+    avgLatencyMs: 1800,
+  },
+  ollama: {
+    provider: 'ollama',
+    model: 'ollama',
+    inputCostPer1kTokens: 0,
+    outputCostPer1kTokens: 0,
+    avgLatencyMs: 450,
+  },
   'ollama-local': {
     provider: 'ollama',
     model: 'llama3.2',
     inputCostPer1kTokens: 0,
     outputCostPer1kTokens: 0,
     avgLatencyMs: 500,
+  },
+  'ollama-coder': {
+    provider: 'ollama',
+    model: 'ollama-coder',
+    inputCostPer1kTokens: 0,
+    outputCostPer1kTokens: 0,
+    avgLatencyMs: 480,
+  },
+  'nomic-embed-text': {
+    provider: 'nomic',
+    model: 'nomic-embed-text',
+    inputCostPer1kTokens: 0,
+    outputCostPer1kTokens: 0,
+    avgLatencyMs: 300,
   },
 }
 
@@ -91,9 +119,9 @@ export function createDefaultConfig(): ProviderConfig {
     apiKey: process.env.LITELLM_API_KEY || 'dummy',
     defaultModel: process.env.DEFAULT_MODEL || 'gpt-4-turbo',
     fallbackModels: process.env.FALLBACK_MODELS?.split(',') || [
+      'deepseek-r1',
+      'gpt-4-turbo',
       'gemini-pro',
-      'deepseek-chat',
-      'ollama-local',
     ],
     telemetry: process.env.TELEMETRY_ENABLED !== 'false',
     trackCost: process.env.TRACK_COST !== 'false',

@@ -1,0 +1,25 @@
+# EXAMPLE USAGE:
+#
+#   Refer for explanation to following link:
+#   https://github.com/evilmartians/lefthook/blob/master/docs/configuration.md
+#
+# pre-push:
+pre-commit:
+	parallel: true
+	commands:
+		# Example lint hook kept for reference; adapt to project-specific tools
+		eslint:
+			glob: "*.{js,ts,jsx,tsx}"
+			run: yarn eslint {staged_files}
+	scripts:
+		# Run fast secrets checks on staged files. This wrapper is tolerant
+		# if tools aren't installed locally and returns non-zero only when
+		# a policy violation is detected. The script lives at
+		# `tools/secrets/secrets_scan.sh` and supports `--staged`.
+		"secrets-staged":
+			runner: bash
+			run: bash tools/secrets/secrets_scan.sh --staged
+
+# Notes:
+# - Full repo scans and SARIF uploads are performed in CI (.github/workflows).
+# - Use `bash tools/secrets/secrets_scan.sh --full` locally to run all scanners.

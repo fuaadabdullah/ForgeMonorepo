@@ -83,13 +83,13 @@ class ApiClient {
   }
 
   async getMemoryStats(): Promise<MemoryStats> {
-    const res = await fetch('http://localhost:3030/memory/stats')
+    const res = await fetch(`${API_BASE}/memory/stats`)
     if (!res.ok) throw new Error(`Get memory stats failed: ${res.statusText}`)
     return res.json()
   }
 
   async getRoutingStats(): Promise<RoutingStats> {
-    const res = await fetch('http://localhost:3030/stats')
+    const res = await fetch(`${API_BASE}/stats`)
     if (!res.ok) throw new Error(`Get routing stats failed: ${res.statusText}`)
     return res.json()
   }

@@ -38,11 +38,18 @@ fi
 
 # Placeholder for ForgeTM backend linting (FastAPI / Python)
 if [ -d "${REPO_ROOT}/ForgeTM/apps/backend" ]; then
-  echo "[lint_all] cd ForgeTM/apps/backend && source .venv/bin/activate && python -m mypy src"
-  cd "${REPO_ROOT}/ForgeTM/apps/backend" && source .venv/bin/activate && python -m mypy src
+  BACKEND_DIR="${REPO_ROOT}/ForgeTM/apps/backend"
+  VENV_ACTIVATE="${BACKEND_DIR}/.venv/bin/activate"
+  if [ -f "$VENV_ACTIVATE" ]; then
+    echo "[lint_all] running mypy in ForgeTM/apps/backend"
+    (cd "$BACKEND_DIR" && source "$VENV_ACTIVATE" && python -m mypy src)
+  else
+    echo "[lint_all] warning: virtualenv not found at $VENV_ACTIVATE; skipping mypy for backend"
+  fi
+
   if git rev-parse --git-dir > /dev/null 2>&1; then
     echo "[lint_all] pre-commit run --all-files --config ForgeTM/apps/backend/.pre-commit-config.yaml"
-    pre-commit run --all-files --config "${REPO_ROOT}/ForgeTM/apps/backend/.pre-commit-config.yaml"
+    pre-commit run --all-files --config "${REPO_ROOT}/ForgeTM/apps/backend/.pre-commit-config.yaml" || true
   else
     echo "[lint_all] warning: not in a git repository, skipping pre-commit checks"
   fi

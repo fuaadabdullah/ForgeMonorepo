@@ -9,6 +9,8 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from smithy.automation.remediation import (
     AutomatedRemediationEngine,
 )
@@ -18,6 +20,8 @@ from smithy.automation.security import (
     SecurityReport,
     SecuritySeverity,
 )
+
+pytestmark = pytest.mark.asyncio
 
 
 async def test_remediation_system():

@@ -17,7 +17,7 @@ import {
 /**
  * Example 1: Simple Chat with Cost Tracking
  */
-async function example1_SimpleChat() {
+export async function example1_SimpleChat() {
   console.log('=== Example 1: Simple Chat ===\n')
 
   const overmind = createOvermind()
@@ -47,7 +47,7 @@ async function example1_SimpleChat() {
 /**
  * Example 2: Quick Crew for Complex Task
  */
-async function example2_QuickCrew() {
+export async function example2_QuickCrew() {
   console.log('\n=== Example 2: Quick Crew ===\n')
 
   const overmind = createOvermind()
@@ -75,7 +75,7 @@ async function example2_QuickCrew() {
 /**
  * Example 3: Custom Crew with Specific Agents
  */
-async function example3_CustomCrew() {
+export async function example3_CustomCrew() {
   console.log('\n=== Example 3: Custom Crew ===\n')
 
   const overmind = createOvermind()
@@ -161,7 +161,7 @@ async function example3_CustomCrew() {
 /**
  * Example 4: Failover Demonstration
  */
-async function example4_Failover() {
+export async function example4_Failover() {
   console.log('\n=== Example 4: Failover Demo ===\n')
 
   // Create Overmind with only one provider to test failover
@@ -185,7 +185,7 @@ async function example4_Failover() {
 /**
  * Example 5: Routing Strategy Comparison
  */
-async function example5_StrategyComparison() {
+export async function example5_StrategyComparison() {
   console.log('\n=== Example 5: Strategy Comparison ===\n')
 
   const testQuery = 'Summarize the key benefits of microservices architecture'
@@ -212,7 +212,7 @@ async function example5_StrategyComparison() {
 /**
  * Example 6: Conversation with Context
  */
-async function example6_Conversation() {
+export async function example6_Conversation() {
   console.log('\n=== Example 6: Multi-turn Conversation ===\n')
 
   const overmind = createOvermind()

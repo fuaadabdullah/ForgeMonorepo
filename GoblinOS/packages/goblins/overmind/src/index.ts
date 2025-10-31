@@ -10,19 +10,22 @@
  * @module @goblinos/overmind
  */
 
-export * from './types.js'
-export * from './config.js'
-export * from './router/index.js'
-export * from './clients/index.js'
-export * from './crew/index.js'
-export * from './memory/index.js'
+// NOTE: during the triage pass we avoid broad `export *` aggregations
+// which can cause duplicate-export collisions across re-export chains.
+// Replace these with explicit named exports as we stabilize the public API.
+// export * from './types.js'
+// export * from './config.js'
+// export * from './router/index.js'
+// export * from './clients/index.js'
+// export * from './crew/index.js'
+// export * from './memory/index.js'
 
 import { trace } from '../observability/tracing.js'
 import { LLMClientFactory, executeWithRetry } from './clients/index.js'
 import { loadConfig } from './config.js'
-import { Agent, Crew, DEFAULT_AGENTS } from './crew/index.js'
+import { Crew, DEFAULT_AGENTS } from './crew/index.js'
 import { type MemoryManager, createMemoryManager } from './memory/index.js'
-import { classifyComplexity, getFailoverProvider, routeQuery } from './router/index.js'
+import { getFailoverProvider, routeQuery } from './router/index.js'
 import type {
   AgentConfig,
   CrewConfig,

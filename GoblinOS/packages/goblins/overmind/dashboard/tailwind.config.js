@@ -1,6 +1,17 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  safelist: [
+    'grid-cols-1',
+    'md:grid-cols-12',
+    'gap-2',
+    'col-span-12',
+    'md:col-span-6',
+    'lg:col-span-3',
+    'xl:col-span-3',
+    'lg:col-span-4',
+    'xl:col-span-4',
+  ],
   theme: {
     extend: {
       colors: {

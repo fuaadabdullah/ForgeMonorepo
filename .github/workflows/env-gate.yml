@@ -1,0 +1,296 @@
+name: Environment Gate
+
+on:
+  pull_request:
+    paths:
+      - '**/.env*'
+      - '**/*.py'
+      - '**/*.ts'
+      - '**/*.js'
+      - '**/*.go'
+      - '**/*.rs'
+      - '**/*.java'
+      - '.github/workflows/env-gate.yml'
+  push:
+    branches: [main, develop]
+    paths:
+      - '**/.env*'
+      - '**/*.py'
+      - '**/*.ts'
+      - '**/*.js'
+      - '**/*.go'
+      - '**/*.rs'
+      - '**/*.java'
+      - '.github/workflows/env-gate.yml'
+  workflow_dispatch:
+
+jobs:
+  env-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      drift-detected: ${{ steps.env-gate.outputs.drift-detected }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install uv (Python package manager)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install Smithy and dependencies
+        run: |
+          cd GoblinOS/packages/goblins/forge-smithy
+          uv sync --dev
+
+      - name: Scan for environment variable usage
+        id: scan-env-usage
+        run: |
+          echo "🔍 Scanning codebase for environment variable usage..."
+
+          # Create reports directory
+          mkdir -p reports
+
+          # Scan Python files for os.getenv, os.environ.get, etc.
+          echo "## Python Environment Usage" > reports/env-usage-python.md
+          echo "| File | Line | Variable | Context |" >> reports/env-usage-python.md
+          echo "|------|------|----------|---------|" >> reports/env-usage-python.md
+
+          find . -name "*.py" -not -path "./.venv/*" -not -path "./node_modules/*" | while read -r file; do
+            grep -n "os\.getenv\|os\.environ\.get\|os\.environ\[.*\]" "$file" | while read -r line; do
+              line_num=$(echo "$line" | cut -d: -f1)
+              content=$(echo "$line" | cut -d: -f2-)
+              var_name=$(echo "$content" | grep -o "os\.getenv(['\"][^'\"]*['\"]" | sed "s/os\.getenv(['\"]\([^'\"]*\)['\"]/\1/" || echo "")
+              if [ -n "$var_name" ]; then
+                echo "| \`$file\` | $line_num | \`$var_name\` | \`$content\` |" >> reports/env-usage-python.md
+              fi
+            done
+          done
+
+          # Scan TypeScript/JavaScript files for process.env
+          echo "## TypeScript/JavaScript Environment Usage" > reports/env-usage-js.md
+          echo "| File | Line | Variable | Context |" >> reports/env-usage-js.md
+          echo "|------|------|----------|---------|" >> reports/env-usage-js.md
+
+          find . -name "*.ts" -o -name "*.js" -o -name "*.tsx" -o -name "*.jsx" | grep -v node_modules | while read -r file; do
+            grep -n "process\.env\." "$file" | while read -r line; do
+              line_num=$(echo "$line" | cut -d: -f1)
+              content=$(echo "$line" | cut -d: -f2-)
+              var_name=$(echo "$content" | grep -o "process\.env\.[A-Z_][A-Z0-9_]*" | sed "s/process\.env\.//" || echo "")
+              if [ -n "$var_name" ]; then
+                echo "| \`$file\` | $line_num | \`$var_name\` | \`$content\` |" >> reports/env-usage-js.md
+              fi
+            done
+          done
+
+      - name: Analyze environment drift
+        id: env-gate
+        run: |
+          echo "🔍 Analyzing environment configuration drift..."
+
+          # Run Smithy environment validation
+          cd GoblinOS/packages/goblins/forge-smithy
+
+          # Generate comprehensive drift report
+          uv run python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from smithy.automation.env_validator import EnvironmentValidator
+          import json
+          from pathlib import Path
+
+          validator = EnvironmentValidator()
+          results = validator.validate_all_services()
+
+          drift_report = {
+              'services': {},
+              'undocumented_keys': [],
+              'missing_documentation': [],
+              'total_drift_score': 0
+          }
+
+          for service, result in results.items():
+              drift_report['services'][service] = {
+                  'errors': len(result.errors),
+                  'warnings': len(result.warnings),
+                  'valid_keys': len(result.valid_keys)
+              }
+
+              # Collect undocumented keys (warnings about keys in .env but not in .env.example)
+              for warning in result.warnings:
+                  if 'found in .env but not documented' in warning.message:
+                      drift_report['undocumented_keys'].append({
+                          'service': service,
+                          'key': warning.key,
+                          'file': warning.message.split('found in ')[1].split(' but')[0]
+                      })
+
+              # Collect missing documentation (errors about missing required keys)
+              for error in result.errors:
+                  if 'not found in .env.example' in error.message:
+                      drift_report['missing_documentation'].append({
+                          'service': service,
+                          'key': error.key
+                      })
+
+          drift_report['total_drift_score'] = len(drift_report['undocumented_keys']) + len(drift_report['missing_documentation'])
+
+          # Write drift report
+          with open('../../reports/env-drift.json', 'w') as f:
+              json.dump(drift_report, f, indent=2)
+
+          # Determine if drift is critical
+          has_critical_drift = len(drift_report['undocumented_keys']) > 0
+          print(f'DRIFT_DETECTED={str(has_critical_drift).lower()}')
+          print(f'DRIFT_SCORE={drift_report[\"total_drift_score\"]}')
+
+          if has_critical_drift:
+              print('🚨 CRITICAL: Undocumented environment variables detected!')
+              for item in drift_report['undocumented_keys']:
+                  print(f'  - {item[\"service\"]}: {item[\"key\"]}')
+              sys.exit(1)
+          else:
+              print('✅ No critical environment drift detected')
+          " > ../../reports/env-gate-output.txt 2>&1
+
+          # Set outputs for subsequent steps
+          if grep -q "DRIFT_DETECTED=true" reports/env-gate-output.txt; then
+              echo "drift-detected=true" >> $GITHUB_OUTPUT
+          else
+              echo "drift-detected=false" >> $GITHUB_OUTPUT
+          fi
+
+          cat reports/env-gate-output.txt
+
+      - name: Generate environment documentation
+        run: |
+          echo "📚 Generating environment documentation tables..."
+
+          cd GoblinOS/packages/goblins/forge-smithy
+
+          # Generate per-package environment tables
+          uv run python -c "
+          import sys
+          sys.path.insert(0, '.')
+          from smithy.automation.env_validator import EnvironmentValidator
+          from pathlib import Path
+          import json
+
+          validator = EnvironmentValidator()
+
+          # Generate markdown documentation
+          docs_content = '# Environment Variables Reference\n\n'
+          docs_content += 'This document is auto-generated from .env.example files and code analysis.\n\n'
+          docs_content += f'Generated: {validator._get_current_date()}\n\n'
+
+          for service_name, config in validator.service_configs.items():
+              docs_content += f'## {service_name.upper()}\n\n'
+
+              env_file = config['env_file']
+              if env_file.exists():
+                  env_vars = validator._parse_env_file(env_file)
+
+                  if env_vars:
+                      docs_content += '| Variable | Default Value | Required | Description |\n'
+                      docs_content += '|----------|---------------|----------|-------------|\n'
+
+                      for key, value in sorted(env_vars.items()):
+                          required = '✅' if key in config['required_keys'] else '❌'
+                          default = f'\`{value}\`' if value else '*(empty)*'
+                          description = f'Used in {service_name} service'
+
+                          docs_content += f'| \`{key}\` | {default} | {required} | {description} |\n'
+
+                      docs_content += '\n'
+                  else:
+                      docs_content += '*No environment variables documented*\n\n'
+              else:
+                  docs_content += f'*Configuration file not found: {env_file}*\n\n'
+
+          # Write documentation
+          with open('../../reports/env-reference.md', 'w') as f:
+              f.write(docs_content)
+
+          print('📚 Environment documentation generated')
+          "
+
+      - name: Upload environment reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: environment-gate-reports
+          path: |
+            reports/env-usage-python.md
+            reports/env-usage-js.md
+            reports/env-drift.json
+            reports/env-reference.md
+            reports/env-gate-output.txt
+
+      - name: Environment gate check
+        if: steps.env-gate.outputs.drift-detected == 'true'
+        run: |
+          echo "🚨 ENVIRONMENT GATE FAILURE 🚨"
+          echo "Undocumented environment variables detected in .env files!"
+          echo "All environment variables must be documented in .env.example files."
+          echo ""
+          echo "To fix this:"
+          echo "1. Add missing variables to the appropriate .env.example file"
+          echo "2. Update documentation in the .env.example comments"
+          echo "3. Commit the changes"
+          echo ""
+          echo "See the uploaded reports for detailed analysis."
+          exit 1
+
+      - name: Update environment documentation
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "📚 Updating environment documentation in repository..."
+
+          # Copy generated docs to Obsidian
+          mkdir -p Obsidian/📚\ Knowledge/Environment
+          cp reports/env-reference.md Obsidian/📚\ Knowledge/Environment/
+
+          # Commit if there are changes
+          if git diff --quiet Obsidian/📚\ Knowledge/Environment/env-reference.md; then
+              echo "No changes to environment documentation"
+          else
+              git config --global user.name 'github-actions[bot]'
+              git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+              git add Obsidian/📚\ Knowledge/Environment/env-reference.md
+              git commit -m "docs: update environment variables reference [auto-generated]"
+              git push
+              echo "Environment documentation updated"
+          fi
+
+  env-discipline-reminder:
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Environment discipline reminder
+        run: |
+          echo "🏛️ ENVIRONMENT DISCIPLINE ENFORCED 🏛️"
+          echo ""
+          echo "Monorepo Environment Rules:"
+          echo "• All environment variables must be documented in .env.example files"
+          echo "• .env.example files serve as the single source of truth"
+          echo "• Runtime environment usage must match documented variables"
+          echo "• No undocumented environment variables allowed"
+          echo ""
+          echo "Benefits:"
+          echo "• Prevents configuration drift"
+          echo "• Ensures consistent deployments"
+          echo "• Auto-generated documentation"
+          echo "• CI gates prevent regressions"
+          echo ""
+          echo "See: Obsidian/📚 Knowledge/Environment/env-reference.md"

@@ -1,18 +1,9 @@
 import type OpenAI from 'openai'
 
 /**
- * Chat message role
- */
-export type MessageRole = 'system' | 'user' | 'assistant' | 'function'
-
-/**
  * Chat message
  */
-export interface Message {
-  role: MessageRole
-  content: string
-  name?: string
-}
+export type Message = OpenAI.ChatCompletionMessageParam
 
 /**
  * Chat request options
@@ -24,7 +15,7 @@ export interface ChatOptions {
   maxTokens?: number
   stream?: boolean
   tools?: OpenAI.ChatCompletionTool[]
-  toolChoice?: OpenAI.ChatCompletionToolChoiceOption
+  toolChoice?: OpenAI.ChatCompletionToolChoiceOption | 'auto' | 'none'
 }
 
 /**
@@ -45,7 +36,7 @@ export interface ChatResponse {
   content: string
   usage: Usage
   finishReason: string
-  toolCalls?: OpenAI.ChatCompletionMessageToolCall[]
+  toolCalls?: OpenAI.ChatCompletionMessageToolCall[] | null
 }
 
 /**

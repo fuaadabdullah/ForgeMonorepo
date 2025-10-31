@@ -3,19 +3,38 @@ title: ForgeTM
 type: reference
 project: ForgeTM
 status: draft
-owner: ForgeTM
+owner: Crafters Guild (Vanta Lumin & Volt Furnace)
+guild: Crafters Guild
 ---
 
-**AI Trading & Market Analysis Platform** - FastAPI backend with unified LLM API + React/TypeScript frontend application.
+## 🏛️ ForgeTM - AI Trading & Market Analysis Platform
+
+**Guild Ownership:** Crafters Guild (Vanta Lumin - UI/UX & Volt Furnace - APIs/Schemas)
+**Documentation:** See [Guild Charter](../../Obsidian/📋%20Projects/GoblinOS/Guild_Glossary_and_Charter.md) for guild responsibilities and KPIs.
+
+**Status: Planned for future development.** This project is not yet integrated with GoblinOS. The GoblinOS Overmind dashboard does not currently include trading functionality.
+
+FastAPI backend with unified LLM API. Trading UI will be integrated into the GoblinOS Overmind dashboard under the "Trading Platform" section in a future phase.
 
 ## 🏛️ Architecture
 
 A modern full-stack AI platform with:
 
 - ⚡ **Backend**: FastAPI (Python) - Unified LLM API proxy supporting OpenAI, Gemini, and DeepSeek
-- 🎨 **Frontend**: React + TypeScript + Vite - Modern trading dashboard
+- 🎨 **Frontend**: Integrated into GoblinOS Overmind dashboard under "📈 Trading Platform" section
 - 🤖 **AI Integration**: LiteLLM proxy for multi-provider LLM access
 - 📊 **Features**: Real-time market data, algorithmic trading, AI-powered analysis
+
+## 🛡️ Guild Compliance & Quality Gates
+
+**Crafters Guild Standards:** This project follows Crafters Guild quality gates and KPIs.
+
+- **UI/UX KPIs:** CLS < 0.1, accessibility compliance, design token consistency (Vanta Lumin)
+- **API KPIs:** Schema validation, idempotency, performance benchmarks (Volt Furnace)
+- **Quality Gates:** Must pass `crafters/ui-a11y-check` and `crafters/api-schema-check` PR gates
+- **LiteBrain Routing:** Uses `ollama` → `deepseek-r1` and `ollama-coder` → `deepseek-r1` for Crafters Guild work
+
+For detailed guild responsibilities, see the [Guild Charter](../../Obsidian/📋%20Projects/GoblinOS/Guild_Glossary_and_Charter.md).
 
 ## 📁 Project Structure
 
@@ -56,19 +75,31 @@ cp .env.example .env
 # Edit .env with your actual API keys (see API_KEYS_MANAGEMENT.md)
 ```
 
-### Frontend Setup
+### Frontend (Overmind Dashboard) Setup
+
+**Note:** Trading UI integration is planned for a future phase. Currently, this project has its own frontend in `apps/frontend/`, but it is not active.
+
+To work on GoblinOS (the platform), use:
 
 ```bash
-# 📦 Install Node.js dependencies
-cd ForgeTM/apps/frontend
-pnpm install
+cd GoblinOS/packages/goblins/overmind/dashboard
+pnpm dev
 ```
 
+This launches the GoblinOS Overmind dashboard, which currently focuses on guild operations and does not include trading functionality.
+
+### Secrets management (SOPS)
+
+Real API keys are stored encrypted. To materialize them locally run:
+
+```bash
+# decrypt backend env (writes ForgeTM/apps/backend/.env)
+./decrypt-env.sh ForgeTM/apps/backend
+```
+
+You’ll need the appropriate SOPS/age key in your keychain. The decrypted files include real provider keys so keep them out of version control.
+
 ## ▶️ Running the Application
-
-Use VS Code tasks or run manually:
-
-### Backend Server
 
 ```bash
 # ⚡ Start FastAPI server
@@ -77,13 +108,11 @@ source .venv/bin/activate
 uvicorn forge.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### Frontend Development
+### Overmind Dashboard
 
-```bash
-# 🎨 Start development server
-cd ForgeTM/apps/frontend
-pnpm dev
-```
+**Note:** Trading integration is planned for future development. The GoblinOS Overmind dashboard currently hosts guild UI modules but does not include ForgeTM trading functionality.
+
+> **Note:** `ForgeTM/apps/frontend` is retained only as a lightweight pointer that reminds developers to use Overmind. It no longer implements standalone UI.
 
 ## 🧪 Development
 
@@ -95,9 +124,9 @@ cd ForgeTM/apps/backend
 source .venv/bin/activate
 pytest
 
-# Frontend tests
-cd ForgeTM/apps/frontend
-pnpm test
+# Frontend tests (dashboard)
+cd GoblinOS/packages/goblins/overmind/dashboard
+pnpm test || true
 ```
 
 ### Linting

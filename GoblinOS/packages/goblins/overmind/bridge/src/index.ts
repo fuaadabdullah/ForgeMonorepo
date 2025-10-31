@@ -210,64 +210,70 @@ app.get('/memory/stats', async (_req, res) => {
 })
 
 // ============================================================================
-// Smithy (Forge Guild Environment Goblin) Routes
+// Forge Guild (led by Forge Master Dregg Ember) Routes
 // ============================================================================
 
-// Smithy doctor - environment diagnostics
-app.post('/smithy/doctor', async (_req, res) => {
+const getForgeGuildUrl = () =>
+  process.env.FORGE_GUILD_SERVICE_URL ||
+  process.env.FORGE_MASTER_SERVICE_URL ||
+  process.env.SMITHY_SERVICE_URL ||
+  'http://forge-guild:8002'
+
+// Forge Guild doctor - environment diagnostics
+app.post('/forge-guild/doctor', async (_req, res) => {
   try {
-    const smithyUrl = process.env.SMITHY_SERVICE_URL || 'http://smithy:8002'
-    const response = await axios.post(`${smithyUrl}/smithy/doctor`)
+    const forgeGuildUrl = getForgeGuildUrl()
+    const response = await axios.post(`${forgeGuildUrl}/forge-guild/doctor`)
     res.json(response.data)
   } catch (error) {
-    logger.error('Smithy doctor error:', error)
+    logger.error('Forge Guild doctor error:', error)
     res.status(500).json({
-      error: 'Smithy doctor failed',
+      error: 'Forge Guild doctor failed',
       message: (error as Error).message,
     })
   }
 })
 
-// Smithy bootstrap - environment setup
-app.post('/smithy/bootstrap', async (_req, res) => {
+// Forge Guild bootstrap - environment setup
+app.post('/forge-guild/bootstrap', async (_req, res) => {
   try {
-    const smithyUrl = process.env.SMITHY_SERVICE_URL || 'http://smithy:8002'
-    const response = await axios.post(`${smithyUrl}/smithy/bootstrap`)
+    const forgeGuildUrl = getForgeGuildUrl()
+    const response = await axios.post(`${forgeGuildUrl}/forge-guild/bootstrap`)
     res.json(response.data)
   } catch (error) {
-    logger.error('Smithy bootstrap error:', error)
+    logger.error('Forge Guild bootstrap error:', error)
     res.status(500).json({
-      error: 'Smithy bootstrap failed',
+      error: 'Forge Guild bootstrap failed',
       message: (error as Error).message,
     })
   }
 })
 
-// Smithy sync config - .env sync
-app.post('/smithy/sync-config', async (_req, res) => {
+// Forge Guild sync config - .env sync
+app.post('/forge-guild/sync-config', async (_req, res) => {
   try {
-    const smithyUrl = process.env.SMITHY_SERVICE_URL || 'http://smithy:8002'
-    const response = await axios.post(`${smithyUrl}/smithy/sync-config`)
+    const forgeGuildUrl = getForgeGuildUrl()
+    const response = await axios.post(`${forgeGuildUrl}/forge-guild/sync-config`)
     res.json(response.data)
   } catch (error) {
-    logger.error('Smithy sync-config error:', error)
+    logger.error('Forge Guild sync-config error:', error)
     res.status(500).json({
-      error: 'Smithy sync-config failed',
+      error: 'Forge Guild sync-config failed',
       message: (error as Error).message,
     })
   }
 })
 
-// Smithy check - lint + test
-app.post('/smithy/check', async (_req, res) => {
+// Forge Guild check - lint + test
+app.post('/forge-guild/check', async (_req, res) => {
   try {
-    const smithyUrl = process.env.SMITHY_SERVICE_URL || 'http://smithy:8002'
-    const response = await axios.post(`${smithyUrl}/smithy/check`)
+    const forgeGuildUrl = getForgeGuildUrl()
+    const response = await axios.post(`${forgeGuildUrl}/forge-guild/check`)
     res.json(response.data)
   } catch (error) {
-    logger.error('Smithy check error:', error)
+    logger.error('Forge Guild check error:', error)
     res.status(500).json({
-      error: 'Smithy check failed',
+      error: 'Forge Guild check failed',
       message: (error as Error).message,
     })
   }

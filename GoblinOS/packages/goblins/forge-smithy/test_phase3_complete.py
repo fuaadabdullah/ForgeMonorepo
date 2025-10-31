@@ -12,12 +12,11 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+import pytest
+
 from smithy.automation.remediation import (
     AutomatedRemediationEngine,
-    RemediationAction,
-    RemediationPlan,
     RemediationStatus,
-    RiskLevel,
 )
 from smithy.automation.scanners import (
     BasicComplianceAuditor,
@@ -33,6 +32,8 @@ from smithy.automation.security import (
     SecurityScannerEngine,
     SecuritySeverity,
 )
+
+pytestmark = pytest.mark.asyncio
 
 
 async def test_phase3_integration():

@@ -125,10 +125,14 @@ export class WorkingMemory {
     }
 
     // Filter by time range
-    if (query.timeRange) {
+    if (
+      query.timeRange &&
+      query.timeRange.start !== undefined &&
+      query.timeRange.end !== undefined
+    ) {
       results = results.filter(
         (entry) =>
-          entry.timestamp >= query.timeRange?.start && entry.timestamp <= query.timeRange?.end
+          entry.timestamp >= query.timeRange!.start && entry.timestamp <= query.timeRange!.end
       )
     }
 

@@ -12,6 +12,9 @@ from ..models.user import User
 from ..observability.sentry import add_breadcrumb, capture_exception
 from ..observability.tracing import get_tracer
 
+# Auth dependency type
+AuthUserType = Annotated[User, Depends(get_current_active_user)] | None
+
 router = APIRouter()
 tracer = get_tracer(__name__)
 

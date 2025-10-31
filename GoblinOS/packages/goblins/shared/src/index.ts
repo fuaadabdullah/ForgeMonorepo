@@ -7,3 +7,4 @@
  */
 
 export { createLogger, log, type Logger } from './logger.js'
+export { runCommand, resolveRepoPath, type RunCommandOptions } from './exec.js'

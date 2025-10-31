@@ -1,4 +1,4 @@
-import { SpanStatusCode, context, trace } from '@opentelemetry/api'
+import { SpanStatusCode, trace } from '@opentelemetry/api'
 import type { ProviderMetrics } from './types.js'
 
 const tracer = trace.getTracer('@goblinos/providers')

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -17,7 +17,7 @@ _latency_stats: dict[str, float] = {}
 
 @router.get('/analytics')
 async def get_routing_analytics(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:
     """Get comprehensive routing analytics and statistics."""
     try:
@@ -31,19 +31,19 @@ async def get_routing_analytics(
             provider_usage[provider] = provider_usage.get(provider, 0) + 1
 
         # Calculate average latency by provider
-        latency_by_provider = {}
-        latency_counts = {}
+        latency_by_provider: dict[str, float] = {}
+        latency_counts: dict[str, int] = {}
         for decision in _routing_decisions:
             provider = decision.get('selectedProvider', 'unknown')
             latency = decision.get('latency')
             if latency is not None:
                 if provider not in latency_by_provider:
-                    latency_by_provider[provider] = 0
+                    latency_by_provider[provider] = 0.0
                     latency_counts[provider] = 0
                 latency_by_provider[provider] += latency
                 latency_counts[provider] += 1
 
-        average_latency = {}
+        average_latency: dict[str, float] = {}
         for provider in latency_by_provider:
             if latency_counts[provider] > 0:
                 average_latency[provider] = latency_by_provider[provider] / latency_counts[provider]
@@ -73,8 +73,6 @@ async def get_routing_analytics(
         raise HTTPException(status_code=500, detail=detail) from e
 
 
-# Helper function to record routing decisions
-# This would be called from the routing logic
 def record_routing_decision(
     task_type: str,
     selected_provider: str,
@@ -105,7 +103,7 @@ def record_routing_decision(
 
 @router.post('/analytics/test-data')
 async def add_test_data(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: User = Depends(get_current_active_user),
 ) -> dict[str, str]:
     """Add sample routing decisions for testing."""
     import random
@@ -128,9 +126,7 @@ async def add_test_data(
         task = random.choice(tasks)
         reason = random.choice(reasons)
         latency = random.uniform(0.3, 2.5) if random.random() > 0.1 else None
-        cost = (
-            random.uniform(0.005, 0.08) if provider != 'ollama' and random.random() > 0.15 else None
-        )
+        cost = random.uniform(0.005, 0.08) if provider != 'ollama' and random.random() > 0.15 else None
         fallback = random.random() < 0.08
 
         record_routing_decision(
@@ -143,4 +139,15 @@ async def add_test_data(
             fallback_used=fallback,
         )
 
-    return {'message': 'Added 25 sample routing decisions for testing'}
+    return {'message': 'Test data added'}
+
+
+@router.post('/analytics/dashboard')
+async def record_dashboard_telemetry(
+    data: dict[str, Any],
+    current_user: User = Depends(get_current_active_user),
+) -> dict[str, str]:
+    """Record dashboard telemetry data."""
+    # For now, just log it. In production, store in database
+    print(f"Dashboard telemetry: {data}")
+    return {'message': 'Telemetry recorded'}

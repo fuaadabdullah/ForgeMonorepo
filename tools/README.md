@@ -6,7 +6,7 @@ status: draft
 owner: GoblinOS
 ---
 
-Cross-repository scripts, generators, and utilities.
+Cross-repository scripts, generators, and utilities. Ownership per guild/goblin is tracked in `tools/AGENT_TOOLS.md` under the Guild Tool Ownership Matrix.
 
 ## Contents
 

@@ -9,7 +9,10 @@ dependencies = [
   "pydantic>=2",
   "pydantic-settings>=2",
   "rich>=13",
-  "ruff>=0.6"
+  "ruff>=0.6",
+  "pyyaml>=6.0",
+  "pytest>=8.4.2",
+  "pytest-asyncio>=0.23",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +33,11 @@ smithy = "smithy.cli:app"
 
 [tool.uv]
 package = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["smithy*"]
+exclude = ["sample_policies", "compliance_reports"]
 
 [tool.ruff]
 line-length = 100

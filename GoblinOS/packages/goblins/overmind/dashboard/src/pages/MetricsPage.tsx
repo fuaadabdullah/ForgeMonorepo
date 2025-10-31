@@ -18,7 +18,7 @@ import {
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444']
 
 export default function MetricsPage() {
-  const { stats, isLoading } = useMetrics()
+  const { stats, isLoading, isFallback } = useMetrics()
 
   if (isLoading || !stats) {
     return (
@@ -43,6 +43,14 @@ export default function MetricsPage() {
       <header className="flex h-16 items-center justify-between border-b border-border px-6">
         <h2 className="text-2xl font-bold">Metrics</h2>
       </header>
+
+      {isFallback && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm text-amber-200">
+          <div className="mx-auto flex max-w-6xl items-center gap-2">
+            Displaying cached analytics — live routing stats are unreachable.
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-6xl space-y-6">
@@ -92,8 +100,8 @@ export default function MetricsPage() {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {providerData.map((_entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {providerData.map((entry, index) => (
+                      <Cell key={`cell-${entry.name}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip />

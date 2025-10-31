@@ -7,13 +7,22 @@ vi.mock('ollama', () => {
   const mockList = vi.fn()
   const mockPull = vi.fn()
 
+  // Provide a canonical instance object in the mock exports so consumers
+  // (and tests) can reliably access the same mock functions. This helps the
+  // provider locate the exact mocked methods across different module/runtime
+  // permutations.
+  const instance = {
+    generate: mockGenerate,
+    embeddings: mockEmbeddings,
+    list: mockList,
+    pull: mockPull,
+  }
+
   return {
-    Ollama: vi.fn().mockImplementation(() => ({
-      generate: mockGenerate,
-      embeddings: mockEmbeddings,
-      list: mockList,
-      pull: mockPull,
-    })),
+    Ollama: vi.fn().mockImplementation(() => instance),
+    // Export the instance directly to make it discoverable by provider in
+    // test scenarios where constructor invocation shapes are inconsistent.
+    instance,
   }
 })
 

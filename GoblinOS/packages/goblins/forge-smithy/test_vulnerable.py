@@ -1,5 +1,4 @@
 
-import os
 
 def read_file(filename):
     with open(filename, 'r') as f:  # Dangerous open call

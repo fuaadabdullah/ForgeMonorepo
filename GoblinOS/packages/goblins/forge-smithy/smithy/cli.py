@@ -1,12 +1,16 @@
-import typer  # type: ignore
 import asyncio
 import json
-from typing import Optional, List
+from typing import List, Optional
+
+import typer  # type: ignore
 from rich.console import Console  # type: ignore
-from . import doctor, bootstrap, tasks, config, controls, biome
+
+from . import biome, bootstrap, config, controls, doctor, tasks
+from .automation import env_validator
 
 try:
     from .agent import get_smithy_agent  # type: ignore
+
     AGENT_AVAILABLE = True
 except ImportError:
     AGENT_AVAILABLE = False
@@ -14,31 +18,38 @@ except ImportError:
 app = typer.Typer(help="Smithy — your Forge Guild environment goblin 🛠️")
 console = Console()
 
+
 @app.command()
 def doctor_cmd():
     """Run full environment diagnostics."""
     doctor.run()
+
 
 @app.command()
 def bootstrap_cmd(dev: bool = True):
     """Create Python env via uv, install deps, pre-commit, devcontainer."""
     bootstrap.run(dev=dev)
 
+
 @app.command()
 def sync_config():
     """Sync .env with .env.example; verify required keys."""
     config.sync()
+
 
 @app.command()
 def check():
     """Lint + test — enforce repo hygiene."""
     tasks.check()
 
+
 @app.command()
 def agents():
     """List available AI agents."""
     if not AGENT_AVAILABLE:
-        console.print("[red]❌ Agent functionality not available. Install with: uv sync --extra agent[/red]")
+        console.print(
+            "[red]❌ Agent functionality not available. Install with: uv sync --extra agent[/red]"
+        )
         return
 
     try:
@@ -53,11 +64,14 @@ def agents():
     except Exception as e:
         console.print(f"[red]❌ Failed to load agents: {e}[/red]")
 
+
 @app.command()
 def doctor_agent():
     """Run environment diagnostics using AI agent."""
     if not AGENT_AVAILABLE:
-        console.print("[red]❌ Agent functionality not available. Install with: uv sync --extra agent[/red]")
+        console.print(
+            "[red]❌ Agent functionality not available. Install with: uv sync --extra agent[/red]"
+        )
         return
 
     try:
@@ -73,11 +87,14 @@ def doctor_agent():
     except Exception as e:
         console.print(f"[red]❌ Agent diagnostics failed: {e}[/red]")
 
+
 @app.command()
 def bootstrap_agent():
     """Bootstrap environment using AI agent."""
     if not AGENT_AVAILABLE:
-        console.print("[red]❌ Agent functionality not available. Install with: uv sync --extra agent[/red]")
+        console.print(
+            "[red]❌ Agent functionality not available. Install with: uv sync --extra agent[/red]"
+        )
         return
 
     try:
@@ -93,11 +110,14 @@ def bootstrap_agent():
     except Exception as e:
         console.print(f"[red]❌ Agent bootstrapping failed: {e}[/red]")
 
+
 @app.command()
 def quality_agent():
     """Run code quality checks using AI agent."""
     if not AGENT_AVAILABLE:
-        console.print("[red]❌ Agent functionality not available. Install with: uv sync --extra agent[/red]")
+        console.print(
+            "[red]❌ Agent functionality not available. Install with: uv sync --extra agent[/red]"
+        )
         return
 
     try:
@@ -113,6 +133,7 @@ def quality_agent():
     except Exception as e:
         console.print(f"[red]❌ Agent quality check failed: {e}[/red]")
 
+
 @app.command()
 def compliance():
     """Check dependency compliance against policies."""
@@ -124,12 +145,15 @@ def compliance():
         else:
             console.print("[red]❌ Compliance violations found:[/red]")
             for violation in violations:
-                console.print(f"  • [{violation.severity.upper()}] {violation.package}: {violation.violation}")
+                console.print(
+                    f"  • [{violation.severity.upper()}] {violation.package}: {violation.violation}"
+                )
                 if violation.suggestion:
                     console.print(f"    💡 {violation.suggestion}")
 
     except Exception as e:
         console.print(f"[red]❌ Compliance check failed: {e}[/red]")
+
 
 @app.command()
 def compliance_report():
@@ -140,6 +164,7 @@ def compliance_report():
         console.print(report)
     except Exception as e:
         console.print(f"[red]❌ Report generation failed: {e}[/red]")
+
 
 @app.command()
 def check_updates(environments: str = "dev"):
@@ -158,10 +183,13 @@ def check_updates(environments: str = "dev"):
             for update in env_updates:
                 breaking = " ⚠️ BREAKING" if update.breaking_changes else ""
                 security = " 🔒 SECURITY" if update.security_fixes else ""
-                console.print(f"  • {update.package}: {update.old_version} → {update.new_version}{breaking}{security}")
+                console.print(
+                    f"  • {update.package}: {update.old_version} → {update.new_version}{breaking}{security}"
+                )
 
     except Exception as e:
         console.print(f"[red]❌ Update check failed: {e}[/red]")
+
 
 @app.command()
 def schedule_updates_cmd(frequency: str = "weekly", time_of_day: str = "02:00"):
@@ -169,11 +197,14 @@ def schedule_updates_cmd(frequency: str = "weekly", time_of_day: str = "02:00"):
     try:
         success = controls.schedule_updates(frequency, time_of_day)
         if success:
-            console.print(f"[green]✅ Update schedule created: {frequency} at {time_of_day}[/green]")
+            console.print(
+                f"[green]✅ Update schedule created: {frequency} at {time_of_day}[/green]"
+            )
         else:
             console.print("[red]❌ Failed to create update schedule[/red]")
     except Exception as e:
         console.print(f"[red]❌ Schedule creation failed: {e}[/red]")
+
 
 @app.command()
 def add_policy(name: str, description: str, rules: str):
@@ -192,6 +223,7 @@ def add_policy(name: str, description: str, rules: str):
     except Exception as e:
         console.print(f"[red]❌ Policy creation failed: {e}[/red]")
 
+
 @app.command()
 def list_policies():
     """List all dependency policies."""
@@ -205,6 +237,7 @@ def list_policies():
 
     except Exception as e:
         console.print(f"[red]❌ Failed to list policies: {e}[/red]")
+
 
 @app.command()
 def biome_check(files: Optional[List[str]] = None, staged: bool = False, verbose: bool = False):
@@ -220,6 +253,7 @@ def biome_check(files: Optional[List[str]] = None, staged: bool = False, verbose
 
     except Exception as e:
         console.print(f"[red]❌ Biome check failed: {e}[/red]")
+
 
 @app.command()
 def biome_fix(files: Optional[List[str]] = None, staged: bool = False, unsafe: bool = False):
@@ -237,6 +271,7 @@ def biome_fix(files: Optional[List[str]] = None, staged: bool = False, unsafe: b
 
     except Exception as e:
         console.print(f"[red]❌ Biome fix failed: {e}[/red]")
+
 
 @app.command()
 def biome_format(files: Optional[List[str]] = None, check: bool = False):
@@ -262,6 +297,7 @@ def biome_format(files: Optional[List[str]] = None, check: bool = False):
     except Exception as e:
         console.print(f"[red]❌ Biome format failed: {e}[/red]")
 
+
 @app.command()
 def biome_imports(files: Optional[List[str]] = None):
     """Organize imports with Biome."""
@@ -278,6 +314,7 @@ def biome_imports(files: Optional[List[str]] = None):
 
     except Exception as e:
         console.print(f"[red]❌ Biome imports failed: {e}[/red]")
+
 
 @app.command()
 def biome_init_config(force: bool = False):
@@ -298,6 +335,7 @@ def biome_init_config(force: bool = False):
     except Exception as e:
         console.print(f"[red]❌ Biome config initialization failed: {e}[/red]")
 
+
 @app.command()
 def biome_diagnostics():
     """Show Biome diagnostics and status."""
@@ -312,7 +350,7 @@ def biome_diagnostics():
         console.print(f"  Config Path: {diagnostics['config_path']}")
         console.print(f"  Workspace Root: {diagnostics['workspace_root']}")
 
-        if not diagnostics['available']:
+        if not diagnostics["available"]:
             console.print("\n[yellow]💡 To install Biome:[/yellow]")
             console.print("  pip install biome>=1.9.4")
             console.print("  # or")
@@ -320,6 +358,95 @@ def biome_diagnostics():
 
     except Exception as e:
         console.print(f"[red]❌ Failed to get Biome diagnostics: {e}[/red]")
+
+
+@app.command()
+def env_validate(service: Optional[str] = None):
+    """Validate environment configuration and secrets for services."""
+    try:
+        validator = env_validator.EnvironmentValidator()
+        if service:
+            result = validator.validate_service(service)
+            if result.errors:
+                console.print(f"[red]❌ {service} validation failed:[/red]")
+                for error in result.errors:
+                    console.print(f"  • {error.key}: {error.message}")
+                    if error.suggestion:
+                        console.print(f"    💡 {error.suggestion}")
+                raise typer.Exit(1)
+            else:
+                console.print(f"[green]✅ {service} validation passed[/green]")
+                if result.warnings:
+                    console.print("[yellow]⚠️  Warnings:[/yellow]")
+                    for warning in result.warnings:
+                        console.print(f"  • {warning.key}: {warning.message}")
+                        if warning.suggestion:
+                            console.print(f"    💡 {warning.suggestion}")
+        else:
+            results = validator.validate_all_services()
+            has_errors = False
+
+            for svc, result in results.items():
+                status = "✅" if result.is_valid else "❌"
+                console.print(
+                    f"{status} {svc}: {len(result.errors)} errors, {len(result.warnings)} warnings"
+                )
+
+                if result.errors:
+                    has_errors = True
+                    for error in result.errors:
+                        console.print(f"  ❌ {error.key}: {error.message}")
+
+                if result.warnings:
+                    for warning in result.warnings:
+                        console.print(f"  ⚠️  {warning.key}: {warning.message}")
+
+            if has_errors:
+                console.print("\n[red]❌ Some services have validation errors[/red]")
+                raise typer.Exit(1)
+            else:
+                console.print("\n[green]🎉 All services validated successfully![/green]")
+
+    except Exception as e:
+        console.print(f"[red]❌ Environment validation failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def env_sync(services: Optional[List[str]] = None):
+    """Sync .env.example files with available secrets."""
+    try:
+        validator = env_validator.EnvironmentValidator()
+        results = validator.sync_env_examples(services)
+
+        console.print("[blue]🔄 Syncing .env.example files...[/blue]")
+        for service, success in results.items():
+            status = "✅" if success else "❌"
+            console.print(f"{status} {service}")
+
+    except Exception as e:
+        console.print(f"[red]❌ Environment sync failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def env_report():
+    """Generate CI-friendly environment validation report."""
+    try:
+        validator = env_validator.EnvironmentValidator()
+        report = validator.generate_ci_secrets_report()
+        console.print(report)
+
+        # Check if validation passed
+        results = validator.validate_all_services()
+        has_errors = any(not result.is_valid for result in results.values())
+        if has_errors:
+            raise typer.Exit(1)
+
+    except Exception as e:
+        console.print(f"[red]❌ Report generation failed: {e}[/red]")
+        raise typer.Exit(1)
+
 
 if __name__ == "__main__":
     app()

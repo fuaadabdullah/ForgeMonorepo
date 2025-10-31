@@ -1,0 +1,170 @@
+#!/usr/bin/env node
+
+/**
+ * @goblinos/forge-guild
+ *
+ * Forge Guild CLI - Dependency Management & Code Quality Tool (led by Forge Master Dregg Ember)
+ *
+ * Handles Python dependency management, Biome operations, and project scaffolding
+ */
+
+import { execSync } from 'child_process'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const monorepoRoot = path.resolve(__dirname, '../../../..')
+const goblinPath = path.resolve(__dirname, '../../..')
+const backendPath = path.resolve(__dirname, '../../../../../ForgeTM/apps/backend')
+const automationPath = path.resolve(__dirname, '../../../../../GoblinOS/packages/goblins/forge-smithy')
+const pythonExec = (() => {
+  const candidates = [process.env.FORGE_GUILD_PYTHON, 'python3.11', 'python3', 'python']
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      execSync(`command -v ${candidate}`, { stdio: 'ignore' })
+      return candidate
+    } catch {
+      // continue searching
+    }
+  }
+  return 'python3'
+})()
+
+function preparePythonEnv() {
+  console.log(`📦 Ensuring pip can install binary wheels with ${pythonExec} (pip/setuptools/wheel)...`)
+  runCommand(
+    `cd "${backendPath}" && ${pythonExec} -m pip install --upgrade pip setuptools wheel --break-system-packages`
+  )
+}
+
+// Simple CLI implementation using built-in child_process
+const args = process.argv.slice(2)
+const command = args[0]
+
+function runCommand(cmd, options = {}) {
+  try {
+    const result = execSync(cmd, {
+      cwd: monorepoRoot,
+      stdio: 'inherit',
+      ...options
+    })
+    return result
+  } catch (error) {
+    console.error(`❌ Command failed: ${cmd}`)
+    console.error(error.message)
+    process.exit(1)
+  }
+}
+
+console.log('🔨 Forge Guild CLI (led by Forge Master Dregg Ember)')
+console.log(`🐍 Python resolver selected: ${pythonExec}`)
+
+if (!command || command === '--help' || command === '-h') {
+  console.log(`
+Usage: forge-guild <command> [options]
+
+Commands:
+  deps update          Update all Python dependencies
+  deps resolve         Resolve dependency conflicts
+  deps audit           Security audit of dependencies
+  deps sync            Sync environment with lockfile
+
+  biome-check          Check Biome linting
+  biome-fix            Auto-fix Biome issues
+  biome-format         Format code with Biome
+  biome-imports        Organize imports with Biome
+  check                Run Forge Master hygiene suite
+  secrets ...          Manage API keys via Forge Master automation
+
+Examples:
+  forge-guild deps update
+  forge-guild biome-check
+  forge-guild deps audit
+`)
+  process.exit(0)
+}
+
+if (command === 'deps') {
+  const subcommand = args[1]
+  switch (subcommand) {
+    case 'update':
+      console.log('🔄 Updating Python dependencies...')
+      preparePythonEnv()
+      runCommand(`cd "${backendPath}" && ${pythonExec} -m pip install --upgrade -e . --break-system-packages`)
+      console.log('✅ Dependencies updated successfully')
+      break
+
+    case 'resolve':
+      console.log('🔧 Resolving dependency conflicts...')
+      preparePythonEnv()
+      runCommand(`cd "${backendPath}" && ${pythonExec} -m pip install --dry-run -e . --break-system-packages`)
+      console.log('✅ Dependencies resolved successfully')
+      break
+
+    case 'audit':
+      console.log('🔒 Checking for dependency issues...')
+      runCommand(`cd "${backendPath}" && ${pythonExec} -m pip check`)
+      console.log('✅ Dependency check completed')
+      break
+
+    case 'sync':
+      console.log('🔄 Syncing environment with lockfile...')
+      preparePythonEnv()
+      runCommand(`cd "${backendPath}" && ${pythonExec} -m pip install -e . --break-system-packages`)
+      console.log('✅ Environment synced successfully')
+      break
+
+    default:
+      console.error(`❌ Unknown deps subcommand: ${subcommand}`)
+      console.log('Available: update, resolve, audit, sync')
+      process.exit(1)
+  }
+} else if (command.startsWith('biome-')) {
+  const subcommand = command.replace('biome-', '')
+  switch (subcommand) {
+    case 'check':
+      console.log('🔍 Checking Biome linting...')
+      runCommand(`cd "${goblinPath}" && pnpm biome check .`)
+      console.log('✅ Biome check passed')
+      break
+
+    case 'fix':
+      console.log('🔧 Auto-fixing Biome issues...')
+      runCommand(`cd "${goblinPath}" && pnpm biome check --write .`)
+      console.log('✅ Biome fixes applied')
+      break
+
+    case 'format':
+      console.log('🎨 Formatting code with Biome...')
+      runCommand(`cd "${goblinPath}" && pnpm biome format --write .`)
+      console.log('✅ Code formatted')
+      break
+
+    case 'imports':
+      console.log('📦 Organizing imports with Biome...')
+      runCommand(`cd "${goblinPath}" && pnpm biome check --write --organize-imports .`)
+      console.log('✅ Imports organized')
+      break
+
+    default:
+      console.error(`❌ Unknown biome subcommand: ${subcommand}`)
+      console.log('Available: check, fix, format, imports')
+      process.exit(1)
+  }
+} else if (command === 'secrets') {
+  const forwarded = args.slice(1).map((arg) => `"${arg.replace(/"/g, '\\"')}"`).join(' ')
+  const cmd = `cd "${automationPath}" && python -m smithy.automation.cli secrets ${forwarded}`.trim()
+  runCommand(cmd)
+} else if (command === 'check') {
+  console.log('🧪 Running Forge Guild hygiene suite (Biome auto-fix + dependency sanity)...')
+  runCommand(`cd "${goblinPath}" && pnpm biome check --write --unsafe .`)
+  runCommand(`cd "${goblinPath}" && pnpm biome check .`)
+  preparePythonEnv()
+  runCommand(`cd "${backendPath}" && ${pythonExec} -m pip check`)
+  console.log('✅ Forge Guild check completed')
+} else {
+  console.error(`❌ Unknown command: ${command}`)
+  console.log('Run "forge-guild --help" for available commands')
+  process.exit(1)
+}

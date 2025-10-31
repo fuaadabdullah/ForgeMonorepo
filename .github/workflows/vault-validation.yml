@@ -1,0 +1,129 @@
+name: Obsidian Vault Validation
+
+on:
+  push:
+    paths:
+      - 'Obsidian/**'
+      - 'tools/validate_forge_vault.sh'
+      - '.github/workflows/vault-validation.yml'
+  pull_request:
+    paths:
+      - 'Obsidian/**'
+      - 'tools/validate_forge_vault.sh'
+      - '.github/workflows/vault-validation.yml'
+  schedule:
+    # Run vault validation weekly to catch issues
+    - cron: '0 2 * * 1'  # Monday 2 AM UTC
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  validate-vault:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          npm install -g markdown-link-check@3.11.2
+          npm install -g dataview-parser
+
+      - name: Comprehensive vault health check
+        id: health-check
+        run: |
+          echo "🚀 Running comprehensive vault health check..."
+
+          # Create validation report
+          REPORT_FILE="validation-report.txt"
+          echo "# Vault Validation Report" > $REPORT_FILE
+          echo "Date: $(date)" >> $REPORT_FILE
+          echo "Trigger: ${{ github.event_name }}" >> $REPORT_FILE
+          echo "Run: $GITHUB_RUN_ID" >> $REPORT_FILE
+          echo "" >> $REPORT_FILE
+
+          # Count total files
+          TOTAL_FILES=$(find Obsidian -name "*.md" -type f | wc -l)
+          echo "📊 Total markdown files: $TOTAL_FILES" >> $REPORT_FILE
+
+          # Check for broken links
+          echo "\n--- Checking for broken links --- " >> $REPORT_FILE
+          BROKEN_LINKS=0
+          find Obsidian -name "*.md" -type f | while read -r file; do
+            if ! npx markdown-link-check --quiet "$file" 2>/dev/null; then
+              BROKEN_LINKS=$((BROKEN_LINKS + 1))
+              echo "🔗 Broken links found in: $file" >> $REPORT_FILE
+            fi
+          done
+
+          # Check Dataview queries
+          echo "\n--- Checking Dataview queries --- " >> $REPORT_FILE
+          DATAVIEW_ERRORS=0
+          find Obsidian -name "*.md" -type f | while read -r file; do
+            if grep -q "dataview\|dataviewjs" "$file"; then
+              if ! grep -A 10 "dataview\|dataviewjs" "$file" | grep -q "FROM\|WHERE\|TABLE\|LIST"; then
+                DATAVIEW_ERRORS=$((DATAVIEW_ERRORS + 1))
+                echo "📊 Potential Dataview issue in: $file" >> $REPORT_FILE
+              fi
+            fi
+          done
+
+          # Summary
+          echo "" >> $REPORT_FILE
+          echo "## Summary" >> $REPORT_FILE
+          echo "✅ Files checked: $TOTAL_FILES" >> $REPORT_FILE
+          echo "🔗 Broken links found: $BROKEN_LINKS" >> $REPORT_FILE
+          echo "📊 Dataview issues found: $DATAVIEW_ERRORS" >> $REPORT_FILE
+
+          # Determine overall vault status
+          if [ $BROKEN_LINKS -eq 0 ] && [ $DATAVIEW_ERRORS -eq 0 ]; then
+            echo "🎉 Vault health: EXCELLENT" >> $REPORT_FILE
+            echo "VAULT_STATUS=excellent" >> $GITHUB_ENV
+          elif [ $BROKEN_LINKS -le 2 ] && [ $DATAVIEW_ERRORS -le 1 ]; then
+            echo "⚠️  Vault health: GOOD (minor issues)" >> $REPORT_FILE
+            echo "VAULT_STATUS=good" >> $GITHUB_ENV
+          else
+            echo "🚨 Vault health: NEEDS ATTENTION" >> $REPORT_FILE
+            echo "VAULT_STATUS=needs_attention" >> $GITHUB_ENV
+          fi
+
+          echo "\n--- Report --- "
+          cat $REPORT_FILE
+
+      - name: Send Slack notification on nightly run
+        if: always() && github.event_name == 'schedule'
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          payload: |
+            {
+              "text": "🏰 Nightly Vault Validation Complete",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "🏰 ForgeGoblinVault Health Check"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:* ${{ env.VAULT_STATUS == 'excellent' && '🟢 Excellent' || env.VAULT_STATUS == 'good' && '🟡 Good' || '🔴 Needs Attention' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        continue-on-error: true

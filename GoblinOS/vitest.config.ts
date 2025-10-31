@@ -3,6 +3,15 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
+    setupFiles: ['./vitest.setup.ts'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/e2e/**',
+      '**/testing/test/**',
+      '**/pact/**',
+      '**/forge-master/src/smoke.test.ts',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json'],
@@ -16,5 +25,6 @@ export default defineConfig({
     },
     globals: true,
     environment: 'node',
+    environmentMatchGlobs: [['packages/goblins/overmind/dashboard/**', 'jsdom']],
   },
 })

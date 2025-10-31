@@ -13,6 +13,8 @@ Cost monitoring, allocation, and optimization for Overmind using [Kubecost](http
 
 ## Overview
 
+> **Huntress Runbook Tip:** Trigger the VS Code task **"🎯 Magnolia: Kubecost smoke test"** (`tools/smoke.sh`) before deep-dive troubleshooting to ensure the allocation API responds locally.
+
 Kubecost provides:
 
 - 💰 **Cost allocation** - Per-namespace, per-service, per-label granularity

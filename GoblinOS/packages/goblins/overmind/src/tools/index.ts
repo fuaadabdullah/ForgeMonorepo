@@ -24,10 +24,12 @@ export {
   toolEnabledChat,
 } from './interface.js'
 
+import { memoryTool } from './examples/memory.js'
+import { searchTool } from './examples/search.js'
 // Example tools
-export { weatherTool } from './examples/weather.js'
-export { searchTool } from './examples/search.js'
-export { memoryTool } from './examples/memory.js'
+import { weatherTool } from './examples/weather.js'
+
+export { weatherTool, searchTool, memoryTool }
 
 /**
  * All available tools registry

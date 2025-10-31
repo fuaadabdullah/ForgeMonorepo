@@ -336,14 +336,17 @@ function getAvailableProviders(config: OvermindConfig): LLMProvider[] {
 /**
  * Check if a provider is configured and healthy
  */
-function isProviderAvailable(
+export function isProviderAvailable(
   config: OvermindConfig,
   provider: LLMProvider,
-  health: Map<LLMProvider, boolean>
+  health?: Map<LLMProvider, boolean>
 ): boolean {
   const configured = getAvailableProviders(config).includes(provider)
-  const healthy = health.get(provider) !== false
-  return configured && healthy
+  if (health) {
+    const healthy = health.get(provider) !== false
+    return configured && healthy
+  }
+  return configured
 }
 
 /**

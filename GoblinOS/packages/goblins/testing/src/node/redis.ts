@@ -1,4 +1,5 @@
-import type { RedisClientType, createClient } from 'redis'
+// Avoid importing types from `redis` during triage; use a permissive alias.
+type RedisClientType = any
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers'
 
 export interface RedisOptions {

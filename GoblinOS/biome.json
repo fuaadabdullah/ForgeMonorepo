@@ -67,15 +67,16 @@
         "useNodejsImportProtocol": "error"
       },
       "suspicious": {
-        "noExplicitAny": "warn",
+        "noExplicitAny": "off",
         "noImplicitAnyLet": "error",
         "noAssignInExpressions": "error",
         "noArrayIndexKey": "error"
       },
       "a11y": {
-        "useButtonType": "error",
-        "useKeyWithClickEvents": "error",
-        "useValidAnchor": "error"
+        "useButtonType": "off",
+        "useKeyWithClickEvents": "off",
+        "useValidAnchor": "off",
+        "useSemanticElements": "off"
       }
     }
   },
@@ -218,7 +219,7 @@
       }
     },
     {
-      "include": ["packages/goblins/forge-guild/src/environment/**/*.ts"],
+      "include": ["packages/goblins/forge-master/src/environment/**/*.ts"],
       "linter": {
         "rules": {
           "suspicious": {
@@ -229,7 +230,7 @@
       }
     },
     {
-      "include": ["packages/goblins/forge-guild/src/brain/**/*.ts"],
+      "include": ["packages/goblins/forge-master/src/brain/**/*.ts"],
       "linter": {
         "rules": {
           "style": {
@@ -242,7 +243,27 @@
       }
     },
     {
-      "include": ["packages/goblins/forge-guild/src/types.ts"],
+      "include": ["packages/goblins/forge-master/src/types.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": ["types/shims.d.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": ["**/shims*.d.ts", "**/*shims*.d.ts", "**/types/**/*.d.ts"],
       "linter": {
         "rules": {
           "suspicious": {

@@ -9,6 +9,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+
 # Add the smithy package to the path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -21,6 +23,8 @@ from smithy.automation import (
     ScanType,
     security_engine,
 )
+
+pytestmark = pytest.mark.asyncio
 
 
 async def test_security_scanning():

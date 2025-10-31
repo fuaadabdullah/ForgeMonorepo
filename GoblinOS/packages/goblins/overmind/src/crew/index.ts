@@ -15,8 +15,12 @@
 
 import type { LLMClientFactory } from '../clients/index.js'
 import { executeWithRetry } from '../clients/index.js'
+import { loadConfig } from '../config.js'
+import { GuildLiteBrainEnforcer } from '../guild-enforcement.js'
+import { routeQuery } from '../router/index.js'
+import { AdvancedTaskManager } from '../task-manager/index.js'
 import type { AgentConfig, AgentRole, AgentState, CrewConfig, Message, Task } from '../types.js'
-import { AgentRole as Role, AgentState as State } from '../types.js'
+import { LLMProvider as Provider, AgentRole as Role, AgentState as State } from '../types.js'
 
 /**
  * Agent instance with state and execution context
@@ -63,12 +67,19 @@ export class Agent {
         },
       ]
 
-      // Get LLM client
-      const client = this.clientFactory.getClient(this.config.model.provider)
+      // Route query to optimal LLM with guild enforcement
+      const config = loadConfig()
+      const routing = routeQuery(task.prompt, config, {
+        guildId: this.config.guildId,
+        goblinId: this.config.goblinId,
+      })
+
+      // Get LLM client using routed provider/model
+      const client = this.clientFactory.getClient(routing.selectedProvider)
 
       // Execute with retry
       this.state = State.EXECUTING
-      const response = await executeWithRetry(client, messages, this.config.model.model, {
+      const response = await executeWithRetry(client, messages, routing.selectedModel, {
         maxRetries: this.config.maxRetries,
         timeout: this.config.timeout,
       })
@@ -161,14 +172,13 @@ export class Crew {
   private config: CrewConfig
   private agents: Map<string, Agent>
   private tasks: Map<string, Task>
-  private clientFactory: LLMClientFactory
+  private taskManager: AdvancedTaskManager
 
   constructor(config: CrewConfig, clientFactory: LLMClientFactory) {
     this.id = config.id
     this.name = config.name
     this.description = config.description
     this.config = config
-    this.clientFactory = clientFactory
     this.agents = new Map()
     this.tasks = new Map()
 
@@ -177,13 +187,30 @@ export class Crew {
       const agent = new Agent(agentConfig, clientFactory)
       this.agents.set(agent.id, agent)
     }
+
+    // Initialize guild enforcer and task manager
+    const guildEnforcer = new GuildLiteBrainEnforcer()
+    this.taskManager = new AdvancedTaskManager(guildEnforcer)
   }
 
   /**
-   * Add a task to the crew
+   * Add a task to the crew with enhanced classification
    */
   addTask(task: Task): void {
     this.tasks.set(task.id, task)
+
+    // Classify task using advanced task manager
+    const classification = this.taskManager.classifyTask(task)
+
+    // Create execution context
+    const context = this.taskManager.createExecutionContext(task, {
+      classification,
+      guildId: task.context?.guildId as string,
+      goblinId: task.context?.goblinId as string,
+    })
+
+    // Store context for later use
+    ;(task as any).executionContext = context
   }
 
   /**
@@ -219,7 +246,7 @@ export class Crew {
   }
 
   /**
-   * Run tasks sequentially in order
+   * Run tasks sequentially in order with enhanced task management
    */
   private async runSequential(): Promise<Map<string, unknown>> {
     const results = new Map<string, unknown>()
@@ -245,21 +272,33 @@ export class Crew {
         throw new Error(`No suitable agent found for task ${task.id}`)
       }
 
-      // Execute task
-      task.state = 'in-progress'
-      task.startedAt = new Date()
+      // Execute task with enhanced management
+      const result = await this.taskManager.executeTaskWithRecovery(task, async (t: Task) => {
+        // Update task state
+        t.state = 'in-progress'
+        t.startedAt = new Date()
 
-      try {
-        const result = await agent.execute(task)
-        task.state = 'completed'
-        task.completedAt = new Date()
-        task.result = result
-        results.set(task.id, result)
-      } catch (error) {
-        task.state = 'failed'
-        task.error = (error as Error).message
-        throw error
-      }
+        try {
+          const content = await agent.execute(t)
+          t.state = 'completed'
+          t.completedAt = new Date()
+          t.result = content
+
+          return {
+            taskId: t.id,
+            status: 'completed' as const,
+            content,
+            duration: t.completedAt.getTime() - (t.startedAt?.getTime() || 0),
+          }
+        } catch (error) {
+          t.state = 'failed'
+          t.error = (error as Error).message
+
+          throw error
+        }
+      })
+
+      results.set(task.id, result.content)
     }
 
     return results
@@ -290,20 +329,33 @@ export class Crew {
           throw new Error(`No suitable agent for task ${task.id}`)
         }
 
-        task.state = 'in-progress'
-        task.startedAt = new Date()
+        // Execute task with enhanced management
+        const result = await this.taskManager.executeTaskWithRecovery(task, async (t: Task) => {
+          // Update task state
+          t.state = 'in-progress'
+          t.startedAt = new Date()
 
-        try {
-          const result = await agent.execute(task)
-          task.state = 'completed'
-          task.completedAt = new Date()
-          task.result = result
-          return { taskId: task.id, result }
-        } catch (error) {
-          task.state = 'failed'
-          task.error = (error as Error).message
-          throw error
-        }
+          try {
+            const content = await agent.execute(t)
+            t.state = 'completed'
+            t.completedAt = new Date()
+            t.result = content
+
+            return {
+              taskId: t.id,
+              status: 'completed' as const,
+              content,
+              duration: t.completedAt.getTime() - (t.startedAt?.getTime() || 0),
+            }
+          } catch (error) {
+            t.state = 'failed'
+            t.error = (error as Error).message
+
+            throw error
+          }
+        })
+
+        return { taskId: task.id, result: result.content }
       })
 
       const batchResults = await Promise.all(promises)
@@ -335,14 +387,25 @@ export class Crew {
       // Overmind decides how to handle task
       const delegationPlan = await this.createDelegationPlan(overmind, task)
 
-      // Execute subtasks
+      // Execute subtasks with enhanced management
       for (const subtask of delegationPlan.subtasks) {
         const agent = this.agents.get(subtask.assignedTo!)
         if (!agent) continue
 
         try {
-          const result = await agent.execute(subtask)
-          results.set(subtask.id, result)
+          const result = await this.taskManager.executeTaskWithRecovery(
+            subtask,
+            async (t: Task) => {
+              const content = await agent.execute(t)
+              return {
+                taskId: t.id,
+                status: 'completed' as const,
+                content,
+                duration: 0, // Will be calculated by task manager
+              }
+            }
+          )
+          results.set(subtask.id, result.content)
         } catch (error) {
           console.error(`Subtask ${subtask.id} failed:`, error)
         }
@@ -498,7 +561,7 @@ export const DEFAULT_AGENTS: Record<AgentRole, Omit<AgentConfig, 'id'>> = {
     systemPrompt:
       'You are Overmind 🧙‍♂️, the wise Chief Goblin Agent. You coordinate specialist agents, break down complex tasks, and provide strategic guidance with warmth and wit.',
     model: {
-      provider: 'openai',
+      provider: Provider.OPENAI,
       model: 'gpt-4o',
       temperature: 0.7,
     },
@@ -511,7 +574,7 @@ export const DEFAULT_AGENTS: Record<AgentRole, Omit<AgentConfig, 'id'>> = {
     systemPrompt:
       'You are a Research Goblin 📚, expert at gathering information, finding sources, and synthesizing knowledge. Be thorough and cite sources.',
     model: {
-      provider: 'gemini',
+      provider: Provider.GEMINI,
       model: 'gemini-2.0-flash',
       temperature: 0.5,
     },
@@ -524,7 +587,7 @@ export const DEFAULT_AGENTS: Record<AgentRole, Omit<AgentConfig, 'id'>> = {
     systemPrompt:
       'You are an Analyst Goblin 📊, skilled at data analysis, pattern recognition, and deriving insights. Be precise and data-driven.',
     model: {
-      provider: 'deepseek',
+      provider: Provider.DEEPSEEK,
       model: 'deepseek-chat',
       temperature: 0.3,
     },
@@ -537,7 +600,7 @@ export const DEFAULT_AGENTS: Record<AgentRole, Omit<AgentConfig, 'id'>> = {
     systemPrompt:
       'You are a Coder Goblin 💻, expert at writing clean, efficient code. Follow best practices and explain your implementations.',
     model: {
-      provider: 'openai',
+      provider: Provider.OPENAI,
       model: 'gpt-4o',
       temperature: 0.2,
     },
@@ -550,7 +613,7 @@ export const DEFAULT_AGENTS: Record<AgentRole, Omit<AgentConfig, 'id'>> = {
     systemPrompt:
       'You are a Writer Goblin ✍️, skilled at crafting clear, engaging content. Write with style and clarity.',
     model: {
-      provider: 'gemini',
+      provider: Provider.GEMINI,
       model: 'gemini-1.5-flash',
       temperature: 0.8,
     },
@@ -563,7 +626,7 @@ export const DEFAULT_AGENTS: Record<AgentRole, Omit<AgentConfig, 'id'>> = {
     systemPrompt:
       'You are a Reviewer Goblin 🔍, meticulous about quality. Check for errors, suggest improvements, and ensure excellence.',
     model: {
-      provider: 'openai',
+      provider: Provider.OPENAI,
       model: 'gpt-4o-mini',
       temperature: 0.3,
     },
@@ -576,7 +639,7 @@ export const DEFAULT_AGENTS: Record<AgentRole, Omit<AgentConfig, 'id'>> = {
     systemPrompt:
       'You are a Specialist Goblin 🎯, expert in your domain. Provide deep, authoritative knowledge on specialized topics.',
     model: {
-      provider: 'openai',
+      provider: Provider.OPENAI,
       model: 'gpt-4o',
       temperature: 0.5,
     },
@@ -589,9 +652,9 @@ export const DEFAULT_AGENTS: Record<AgentRole, Omit<AgentConfig, 'id'>> = {
     systemPrompt:
       'You are Smithy 🛠️, the Forge Guild environment goblin. You bootstrap development environments, enforce repo hygiene, and automate CI/CD flows. You can run diagnostics, setup Python environments with uv, install dependencies, configure pre-commit hooks, sync configuration files, and execute linting/testing pipelines. Always prioritize deterministic, reproducible setups.',
     model: {
-      provider: 'deepseek',
+      provider: Provider.DEEPSEEK,
       model: 'deepseek-chat',
-      temperature: 0.2,
+      temperature: 0.4,
     },
     maxRetries: 3,
     timeout: 300000,

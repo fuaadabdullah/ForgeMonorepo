@@ -9,6 +9,13 @@ on:
     paths:
       - 'ForgeTM/**'
       - '.github/workflows/forgetm-ci.yml'
+  workflow_dispatch:
+    inputs:
+      run_integration_tests:
+        description: 'Run integration/e2e tests'
+        required: false
+        type: boolean
+        default: false
   schedule:
     # Run full CI weekly to catch regressions
     - cron: '0 1 * * 1'  # Monday 1 AM UTC
@@ -175,6 +182,79 @@ jobs:
             echo "- ❌ Failed: $FAILED" >> $GITHUB_STEP_SUMMARY
             echo "- 🚨 Errors: $ERRORS" >> $GITHUB_STEP_SUMMARY
           fi
+
+  # Dedicated Python test job using uv
+  python-tests:
+    runs-on: ubuntu-latest
+    needs: pre-commit
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.11', '3.12']
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.9.x"
+
+      - name: Set up Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            ForgeTM/apps/backend/.venv
+          key: uv-${{ runner.os }}-${{ matrix.python }}-${{ hashFiles('ForgeTM/apps/backend/uv.lock', 'ForgeTM/apps/backend/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python }}-
+
+      - name: Install dependencies
+        run: |
+          cd ForgeTM/apps/backend
+          uv sync --frozen
+
+      - name: Run Python tests with uv
+        run: |
+          cd ForgeTM/apps/backend
+          uv run pytest \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=80 \
+            --junitxml=pytest-results.xml \
+            -v
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: python-tests-results-${{ matrix.python }}
+          path: |
+            ForgeTM/apps/backend/pytest-results.xml
+
+      - name: Upload coverage to Codecov
+        if: matrix.python == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./ForgeTM/apps/backend/coverage.xml
+          flags: backend-tests
+          name: backend-tests-coverage
+          fail_ci_if_error: false
 
   security:
     runs-on: ubuntu-latest
@@ -366,8 +446,9 @@ jobs:
           sarif_file: container-scan.sarif
         continue-on-error: true
 
-  # Integration testing
+  # Integration testing (opt-in)
   integration:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_integration_tests == 'true')
     runs-on: ubuntu-latest
     needs: container
     services:

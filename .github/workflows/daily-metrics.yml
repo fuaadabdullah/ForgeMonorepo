@@ -1,0 +1,61 @@
+name: Daily Metrics Collection
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC (adjust timezone as needed)
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  collect-metrics:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Full history for git metrics
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'pnpm'
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pnpm install
+        cd ForgeTM/apps/backend && python -m pip install --upgrade pip && pip install -r requirements.txt
+
+    - name: Run metrics collection
+      run: |
+        cd ForgeGoblinVault/🛠️ Tools
+        node automated_metrics_collector.js
+
+    - name: Commit and push metrics updates
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add "ForgeGoblinVault/📈 Metrics/**/*.md"
+        git add "ForgeGoblinVault/📊 Dashboards/*.md"
+
+        # Check if there are changes to commit
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "chore: update daily development metrics [automated]"
+          git push
+        fi
+
+    - name: Update dashboard timestamp
+      run: |
+        # Update the dashboard with current timestamp
+        sed -i "s/\*\*Last Validation:\*\* .*/**Last Validation:** $(date +%Y-%m-%d)/" "ForgeGoblinVault/📊 Dashboards/Cross_Project_Health_Dashboard.md"
+        git add "ForgeGoblinVault/📊 Dashboards/Cross_Project_Health_Dashboard.md"
+        git commit -m "chore: update dashboard validation timestamp [automated]" || true
+        git push || true

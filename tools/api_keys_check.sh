@@ -9,7 +9,7 @@ echo "[api_keys_check] validating API key configuration"
 # Required API keys by file (space-separated)
 FORGETM_ENV_KEYS="GEMINI_API_KEY GEMINI_API_KEY_FORGETM DEEPSEEK_API_KEY OPENAI_API_KEY POLYGON_API_KEY LITELLM_API_KEY"
 BACKEND_ENV_KEYS="GEMINI_API_KEY GEMINI_API_KEY_FORGETM DEEPSEEK_API_KEY OPENAI_API_KEY POLYGON_API_KEY LITELLM_API_KEY"
-GOBLINOS_ENV_KEYS="GEMINI_API_KEY DEEPSEEK_API_KEY POLYGON_API_KEY LITELLM_API_KEY"
+GOBLINOS_ENV_KEYS="GEMINI_API_KEY DEEPSEEK_API_KEY POLYGON_API_KEY OPENAI_API_KEY LITELLM_API_KEY"
 
 # Files to check
 ENV_FILES=(
@@ -44,6 +44,8 @@ check_file_keys "${REPO_ROOT}/ForgeTM/apps/backend/.env.example" "$BACKEND_ENV_K
 check_file_keys "${REPO_ROOT}/GoblinOS/.env.example" "$GOBLINOS_ENV_KEYS"
 
 # Check that API_KEYS_MANAGEMENT.md exists and is up to date
+# The canonical location for workspace docs is under `Obsidian/`.
+# Update: point to `Obsidian/API_KEYS_MANAGEMENT.md` which is referenced across the repo.
 API_KEYS_DOC="${REPO_ROOT}/Obsidian/API_KEYS_MANAGEMENT.md"
 if [ ! -f "$API_KEYS_DOC" ]; then
   echo "[api_keys_check] error: $API_KEYS_DOC not found" >&2

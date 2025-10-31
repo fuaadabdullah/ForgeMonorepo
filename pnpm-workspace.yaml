@@ -1,4 +1,6 @@
 packages:
   - GoblinOS
   - GoblinOS/packages/*
+  - GoblinOS/packages/goblins/*
+  - GoblinOS/packages/goblins/overmind/*
   - ForgeTM/apps/frontend

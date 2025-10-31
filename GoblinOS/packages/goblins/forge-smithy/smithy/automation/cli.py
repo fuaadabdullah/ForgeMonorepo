@@ -9,13 +9,15 @@ import asyncio
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from .config import ConfigManager
+from .pipelines import PipelineGenerator, PipelineTemplateLibrary
+from .plugins import PluginManager, PluginTemplateGenerator
 from .scheduler import Scheduler
 from .secrets import DEFAULT_KEY_NAMES, EnvBackend, SecretsManager
 from .state import SQLiteBackend, StateManager
@@ -63,6 +65,14 @@ class AutomationCLI:
 cli = AutomationCLI()
 
 
+def get_plugin_manager() -> PluginManager:
+    return PluginManager(project_root=cli.project_root, config_manager=cli.config_manager)
+
+
+def get_pipeline_generator() -> PipelineGenerator:
+    return PipelineGenerator(workspace_root=cli.project_root)
+
+
 @app.callback()
 def callback():
     """Smithy Automation Framework - Advanced development workflow automation."""
@@ -76,6 +86,13 @@ app.add_typer(config_app, name="config")
 
 secrets_app = typer.Typer(help="Manage secrets and API keys")
 app.add_typer(secrets_app, name="secrets")
+
+
+plugins_app = typer.Typer(help="Manage Smithy plugins")
+app.add_typer(plugins_app, name="plugins")
+
+pipeline_app = typer.Typer(help="CI/CD pipeline automation")
+app.add_typer(pipeline_app, name="pipeline")
 
 
 @secrets_app.command("list")
@@ -141,6 +158,106 @@ def secrets_sync_env(
     key_list = [k.strip() for k in keys.split(",") if k.strip()]
     results = mgr.sync_env_file(key_list, env_path)
     console.print({"synced": results, "env_file": env_file})
+
+
+@plugins_app.command("list")
+def plugins_list():
+    """List discovered plugins."""
+    manager = get_plugin_manager()
+    records = manager.list_plugins()
+    if not records:
+        console.print("[yellow]No plugins discovered[/yellow]")
+        return
+    table = Table(title="Smithy Plugins")
+    table.add_column("Name", style="cyan")
+    table.add_column("Version", style="green")
+    table.add_column("Categories", style="magenta")
+    table.add_column("Status", style="yellow")
+    table.add_column("Source", style="blue")
+    for record in records.values():
+        categories = ", ".join(record.manifest.categories)
+        table.add_row(
+            record.manifest.name,
+            record.manifest.version,
+            categories or "-",
+            record.status.value,
+            record.source,
+        )
+    console.print(table)
+
+
+@plugins_app.command("enable")
+def plugins_enable(name: str):
+    manager = get_plugin_manager()
+    manager.enable(name)
+    console.print(f"[green]Plugin '{name}' enabled[/green]")
+
+
+@plugins_app.command("disable")
+def plugins_disable(name: str):
+    manager = get_plugin_manager()
+    manager.disable(name)
+    console.print(f"[yellow]Plugin '{name}' disabled[/yellow]")
+
+
+@plugins_app.command("install")
+def plugins_install(path: str):
+    manager = get_plugin_manager()
+    record = manager.install(Path(path))
+    console.print({"installed": record.manifest.name, "path": str(record.path)})
+
+
+@plugins_app.command("generate")
+def plugins_generate(
+    name: str = typer.Argument(..., help="Plugin slug"),
+    destination: str = typer.Argument(..., help="Destination directory"),
+    category: str = typer.Option("tool", help="Plugin category"),
+):
+    generator = PluginTemplateGenerator(
+        plugin_name=name,
+        destination=Path(destination),
+        category=category,
+    )
+    output = generator.generate()
+    console.print({"generated": str(output)})
+
+
+@pipeline_app.command("templates")
+def pipeline_templates():
+    table = Table(title="Available pipeline templates")
+    table.add_column("Template", style="cyan")
+    table.add_column("Description", style="green")
+    table.add_row("python-ci", "Python lint/test/build pipeline")
+    table.add_row("node-ci", "Node/PNPM pipeline with lint/test/build")
+    table.add_row("release", "Environment promotion pipeline")
+    console.print(table)
+
+
+def _build_pipeline(template: str, branch: str, envs: str) -> Any:
+    template = template.lower()
+    if template == "python-ci":
+        return PipelineTemplateLibrary.python_ci(branch)
+    if template == "node-ci":
+        return PipelineTemplateLibrary.node_ci(branch)
+    if template == "release":
+        target_envs = [env.strip() for env in envs.split(",") if env.strip()]
+        if not target_envs:
+            raise typer.BadParameter("Provide at least one environment for release pipeline")
+        return PipelineTemplateLibrary.release_pipeline(target_envs)
+    raise typer.BadParameter(f"Unknown pipeline template '{template}'")
+
+
+@pipeline_app.command("generate")
+def pipeline_generate(
+    template: str = typer.Argument(..., help="Template name (python-ci|node-ci|release)"),
+    filename: str = typer.Argument(..., help="Workflow file name, e.g. python-ci.yml"),
+    branch: str = typer.Option("main", help="Primary branch"),
+    envs: str = typer.Option("staging,production", help="Comma separated env list (release template)"),
+):
+    pipeline = _build_pipeline(template, branch, envs)
+    generator = get_pipeline_generator()
+    path = generator.write_github_actions(pipeline, filename)
+    console.print({"generated": str(path)})
 
 
 @config_app.command("get")

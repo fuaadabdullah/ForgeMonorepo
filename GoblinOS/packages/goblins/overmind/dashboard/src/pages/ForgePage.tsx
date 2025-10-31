@@ -4,9 +4,9 @@ import { useState } from 'react'
 export default function ForgePage() {
   const [results, setResults] = useState<Record<string, string>>({})
 
-  const runSmithyCommand = async (command: string) => {
+  const runForgeGuildCommand = async (command: string) => {
     try {
-      const response = await fetch(`http://localhost:3030/smithy/${command}`, {
+      const response = await fetch(`http://localhost:3030/forge-guild/${command}`, {
         method: 'POST',
       })
       const data = await response.json()
@@ -54,10 +54,10 @@ export default function ForgePage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Hammer className="h-6 w-6" />
-          Forge Guild - Smithy
+          Forge Guild · Dregg Ember (Forge Master)
         </h1>
         <p className="text-muted-foreground mt-1">
-          Environment goblin for bootstrapping, validation, and repo hygiene
+          Forge Master automation for bootstrapping, validation, and repo hygiene.
         </p>
       </div>
 
@@ -72,7 +72,8 @@ export default function ForgePage() {
               </div>
               <p className="text-sm text-muted-foreground mb-3">{cmd.description}</p>
               <button
-                onClick={() => runSmithyCommand(cmd.id)}
+                type="button"
+                onClick={() => runForgeGuildCommand(cmd.id)}
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium transition-colors"
               >
                 Run {cmd.name}
@@ -88,11 +89,10 @@ export default function ForgePage() {
       <div className="mt-8 p-4 bg-muted rounded-lg">
         <h3 className="font-semibold mb-2">CLI Usage</h3>
         <div className="text-sm font-mono bg-background p-3 rounded border">
-          <div>cd /path/to/forge-smithy</div>
-          <div>uv run python -m smithy doctor</div>
-          <div>uv run python -m smithy bootstrap</div>
-          <div>uv run python -m smithy sync-config</div>
-          <div>uv run python -m smithy check</div>
+          <div>pnpm forge-guild doctor</div>
+          <div>pnpm forge-guild bootstrap</div>
+          <div>pnpm forge-guild sync-config</div>
+          <div>pnpm forge-guild check</div>
         </div>
       </div>
     </div>

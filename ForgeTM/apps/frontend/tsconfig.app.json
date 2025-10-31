@@ -17,6 +17,6 @@
   "jsx": "preserve",
   "types": ["next", "next/types/global"]
   },
-  "include": ["src", "next-env.d.ts"],
+  "include": ["src", "pages", "next-env.d.ts"],
   "references": [{ "path": "./tsconfig.json" }]
 }

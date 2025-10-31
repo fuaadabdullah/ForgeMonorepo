@@ -1,0 +1,19 @@
+{
+  "refreshEnabled": true,
+  "refreshInterval": 2500,
+  "enableDataviewJs": true,
+  "enableInlineDataview": true,
+  "enableInlineDataviewInLivePreview": true,
+  "prettyRenderInlineFields": true,
+  "prettyRenderInlineFieldsInLivePreview": true,
+  "taskCompletionTracking": true,
+  "taskCompletionUseEmojiShorthand": false,
+  "taskCompletionText": "completion",
+  "renderNullAs": "\\-",
+  "taskCompletionDateFormat": "yyyy-MM-dd",
+  "warnOnEmptyResult": false,
+  "noResultsMessage": "No results found",
+  "folderNoteName": "_about_",
+  "folderNoteType": "md",
+  "emptyLineAfterHeader": true
+}

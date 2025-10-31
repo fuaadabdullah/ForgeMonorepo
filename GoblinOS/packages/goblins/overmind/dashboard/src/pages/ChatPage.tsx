@@ -1,12 +1,12 @@
 import { useChat } from '@/hooks/useChat'
 import { formatCost, formatDuration } from '@/lib/utils'
-import { Loader2, Send, Trash2 } from 'lucide-react'
+import { AlertTriangle, Loader2, Send, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 export default function ChatPage() {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { history, sendMessage, clearHistory } = useChat()
+  const { history, isLoading, isOffline, sendMessage, clearHistory } = useChat()
 
   const handleSend = () => {
     if (!input.trim() || sendMessage.isPending) return
@@ -31,6 +31,7 @@ export default function ChatPage() {
       <header className="flex h-16 items-center justify-between border-b border-border px-6">
         <h2 className="text-2xl font-bold">Chat</h2>
         <button
+          type="button"
           onClick={() => clearHistory.mutate()}
           disabled={clearHistory.isPending}
           className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
@@ -40,12 +41,24 @@ export default function ChatPage() {
         </button>
       </header>
 
+      {isOffline && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-6 py-3 text-sm text-amber-200">
+          <div className="mx-auto flex max-w-4xl items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Overmind is offline. Messages are cached locally until connectivity returns.
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-4xl space-y-6">
+          {isLoading && (
+            <div className="text-center text-sm text-muted-foreground">Loading history…</div>
+          )}
           {history.map((msg, i) => (
             <div
-              key={i}
+              key={`${msg.role}-${msg.content}-${i}`}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
@@ -113,6 +126,7 @@ export default function ChatPage() {
             rows={3}
           />
           <button
+            type="button"
             onClick={handleSend}
             disabled={!input.trim() || sendMessage.isPending}
             className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"

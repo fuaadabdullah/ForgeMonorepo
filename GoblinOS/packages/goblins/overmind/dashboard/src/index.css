@@ -4,48 +4,56 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --background: 146 29% 6%;
+    --foreground: 140 36% 96%;
+    --card: 146 32% 11%;
+    --card-foreground: 140 38% 92%;
+    --popover: 146 32% 11%;
+    --popover-foreground: 140 36% 96%;
+    --primary: 141 74% 45%;
+    --primary-foreground: 146 33% 10%;
+    --secondary: 144 35% 18%;
+    --secondary-foreground: 140 36% 92%;
+    --muted: 144 28% 16%;
+    --muted-foreground: 141 24% 72%;
+    --accent: 52 96% 54%;
+    --accent-foreground: 146 32% 12%;
+    --destructive: 6 84% 62%;
+    --destructive-foreground: 144 40% 96%;
+    --border: 146 26% 20%;
+    --input: 146 26% 20%;
+    --ring: 141 74% 45%;
+    --radius: 1rem;
+  }
+
+  mark {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+    padding: 0 2px;
+    border-radius: 2px;
+    font-weight: 600;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --background: 140 34% 4%;
+    --foreground: 142 38% 92%;
+    --card: 140 36% 8%;
+    --card-foreground: 140 38% 92%;
+    --popover: 140 36% 8%;
+    --popover-foreground: 140 38% 92%;
+    --primary: 142 70% 48%;
+    --primary-foreground: 140 36% 8%;
+    --secondary: 142 36% 16%;
+    --secondary-foreground: 142 38% 92%;
+    --muted: 142 30% 14%;
+    --muted-foreground: 142 20% 66%;
+    --accent: 51 96% 56%;
+    --accent-foreground: 140 40% 10%;
+    --destructive: 5 80% 52%;
+    --destructive-foreground: 140 36% 96%;
+    --border: 142 28% 18%;
+    --input: 142 28% 18%;
+    --ring: 142 70% 48%;
   }
 }
 
@@ -55,5 +63,100 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  .layout-grid {
+    @apply grid grid-cols-1 md:grid-cols-12;
+  }
+
+  .card-span-full {
+    @apply col-span-12;
+  }
+
+  .card-span-half {
+    @apply md:col-span-6;
+  }
+
+  .card-span-third {
+    @apply md:col-span-6 lg:col-span-4;
+  }
+
+  .card-span-third-xl {
+    @apply md:col-span-6 xl:col-span-4;
+  }
+
+  .card-span-quarter {
+    @apply md:col-span-6 lg:col-span-3;
+  }
+
+  .card-span-quarter-xl {
+    @apply md:col-span-6 xl:col-span-3;
+  }
+
+  .stack-8 {
+    @apply space-y-2;
+  }
+
+  /* Design System Tokens */
+  .shadow-soft {
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  }
+
+  .text-mono {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Inconsolata, "Roboto Mono",
+      "Source Code Pro", monospace;
+  }
+
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 9999px;
+  }
+
+  .status-chip-success {
+    background-color: rgb(220 252 231);
+    color: rgb(22 101 52);
+  }
+
+  .dark .status-chip-success {
+    background-color: rgb(20 83 45);
+    color: rgb(187 247 208);
+  }
+
+  .status-chip-warning {
+    background-color: rgb(254 249 195);
+    color: rgb(133 77 14);
+  }
+
+  .dark .status-chip-warning {
+    background-color: rgb(113 63 18);
+    color: rgb(250 204 21);
+  }
+
+  .status-chip-error {
+    background-color: rgb(254 226 226);
+    color: rgb(153 27 27);
+  }
+
+  .dark .status-chip-error {
+    background-color: rgb(127 29 29);
+    color: rgb(252 165 165);
+  }
+
+  .status-chip-info {
+    background-color: rgb(219 234 254);
+    color: rgb(30 64 175);
+  }
+
+  .dark .status-chip-info {
+    background-color: rgb(30 58 138);
+    color: rgb(147 197 253);
   }
 }

@@ -12,7 +12,6 @@ Tests for the evidence collector implementations including:
 
 import asyncio
 import json
-from pathlib import Path
 
 import pytest
 

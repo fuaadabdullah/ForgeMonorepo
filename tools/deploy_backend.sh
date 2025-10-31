@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 FORGE_TM_DIR="${REPO_ROOT}/ForgeTM"
 BACKEND_DIR="${FORGE_TM_DIR}/apps/backend"
+SMITHY_PY="${REPO_ROOT}/GoblinOS/packages/goblins/forge-smithy/.venv/bin/python"
+REFRESH_WORKFLOWS="false"
 
 # Colors for output
 RED='\033[0;31m'
@@ -55,6 +57,10 @@ check_dependencies() {
         exit 1
     fi
 
+    if [ ! -x "${SMITHY_PY}" ]; then
+        log_warning "Smithy virtualenv not found. Workflow regeneration will be skipped."
+    fi
+
     log_success "All dependencies are available"
 }
 
@@ -89,6 +95,21 @@ run_migrations() {
     PYTHONPATH=src uv run alembic upgrade head
 
     log_success "Database migrations completed"
+}
+
+regenerate_workflows() {
+    if [ ! -x "${SMITHY_PY}" ]; then
+        log_warning "Smithy CLI unavailable; skipping workflow regeneration"
+        return
+    fi
+
+    log_info "Regenerating GitHub Actions workflows via smithy pipeline templates..."
+    pushd "${BACKEND_DIR}" >/dev/null
+    ${SMITHY_PY} -m smithy.cli pipeline generate python-ci python-ci.yml --branch main || \
+        log_warning "Failed to regenerate python-ci workflow"
+    ${SMITHY_PY} -m smithy.cli pipeline generate release release.yml --envs staging,production || \
+        log_warning "Failed to regenerate release workflow"
+    popd >/dev/null
 }
 
 # Run health checks
@@ -173,6 +194,9 @@ deploy() {
 
     case "${deploy_mode}" in
         "local")
+            if [ "${REFRESH_WORKFLOWS}" = "true" ]; then
+                regenerate_workflows
+            fi
             setup_environment
             run_migrations
             health_check
@@ -227,6 +251,7 @@ MODES:
 OPTIONS:
     -h, --help  Show this help message
     --cleanup   Clean up running services and exit
+    --refresh-workflows  Regenerate GitHub Actions workflows before deployment (local mode)
 
 EXAMPLES:
     $0                    # Deploy locally
@@ -247,6 +272,10 @@ parse_args() {
             --cleanup)
                 cleanup
                 exit 0
+                ;;
+            --refresh-workflows)
+                REFRESH_WORKFLOWS="true"
+                shift
                 ;;
             -*)
                 log_error "Unknown option: $1"

@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import type { ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions'
 import type { ProviderConfig } from './config.js'
 import { MODEL_METADATA } from './config.js'
 import { FallbackHandler } from './fallback.js'
@@ -43,15 +44,21 @@ export class ProviderClient {
           const response = await this.fallbackHandler.executeWithFallback(
             model,
             async (attemptModel) => {
-              const completion = await this.client.chat.completions.create({
+              if (options.stream) {
+                throw new Error('Streaming chat completions are not yet supported')
+              }
+
+              const request: ChatCompletionCreateParamsNonStreaming = {
                 model: attemptModel,
-                messages: options.messages as OpenAI.ChatCompletionMessageParam[],
+                messages: options.messages,
                 temperature: options.temperature ?? this.config.temperature,
                 max_tokens: options.maxTokens ?? this.config.maxTokens,
-                stream: options.stream ?? false,
+                stream: false,
                 tools: options.tools,
-                tool_choice: options.toolChoice,
-              })
+                tool_choice: options.toolChoice ?? 'auto',
+              }
+
+              const completion = await this.client.chat.completions.create(request)
 
               return this.mapResponse(completion, attemptModel, startTime)
             }
@@ -102,14 +109,14 @@ export class ProviderClient {
     const response: ChatResponse = {
       id: completion.id,
       model: completion.model,
-      content: choice.message.content || '',
+      content: normalizeMessageContent(choice.message),
       usage: {
         promptTokens: usage.prompt_tokens,
         completionTokens: usage.completion_tokens,
         totalTokens: usage.total_tokens,
       },
-      finishReason: choice.finish_reason,
-      toolCalls: choice.message.tool_calls,
+      finishReason: choice.finish_reason ?? 'stop',
+      toolCalls: choice.message.tool_calls ?? undefined,
     }
 
     // Track metrics
@@ -173,4 +180,34 @@ export function createProvider(config: Partial<ProviderConfig> = {}): ProviderCl
   const mergedConfig = ProviderConfigSchema.parse({ ...defaultConfig, ...config })
 
   return new ProviderClient(mergedConfig)
+}
+
+type ChatMessage = OpenAI.ChatCompletion['choices'][number]['message']
+
+function normalizeMessageContent(message: ChatMessage): string {
+  const originalContent = message.content
+  if (originalContent === null || originalContent === undefined) {
+    return ''
+  }
+
+  const rawContent = originalContent as unknown
+
+  if (typeof rawContent === 'string') {
+    return rawContent
+  }
+
+  if (Array.isArray(rawContent)) {
+    let text = ''
+    for (const part of rawContent as Array<Record<string, unknown>>) {
+      if (typeof part === 'object' && part !== null && 'text' in part) {
+        const candidate = (part as { text?: string }).text
+        if (typeof candidate === 'string') {
+          text += candidate
+        }
+      }
+    }
+    return text
+  }
+
+  return ''
 }
