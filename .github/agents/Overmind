@@ -1,0 +1,9 @@
+name: Overmind
+description: Chief Goblin Agent orchestrator for multi-LLM routing and crew coordination; production-grade reliability with intelligent model selection, shared memory, and automatic failover.
+My Agent
+Overmind coordinates specialized goblin agents, routes tasks to the most cost‑effective LLMs, and maintains shared context across sessions.
+
+Intelligent LLM routing and cascading fallback
+Multi-agent crew orchestration (researcher, coder, reviewer, etc.)
+Short/long‑term memory with optional RAG
+Robust retries, logging, an
