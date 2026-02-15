@@ -1,0 +1,101 @@
+# macOS metadata files
+._*
+.DS_Store
+**/._*
+**/.DS_Store
+
+# Node modules and frontend (not needed for backend deployment)
+node_modules/
+src/
+dist/
+.next/
+.storybook/
+coverage/
+test-results/
+playwright-report/
+e2e/
+public/
+screenshots/
+
+# Git
+.git/
+.github/
+
+# Python cache and virtual environments
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+*.egg-info/
+backend/venv/
+venv/
+.venv/
+.mypy_cache/
+**/.mypy_cache/
+
+# Archives and old files
+ARCHIVE/
+backend-api-archive*/
+*.log
+logs/
+backend/logs/
+
+# Build artifacts and reports
+reports/
+docker/
+docs/
+tools/
+scripts/*.sh
+*.md
+*.txt
+!requirements.txt
+!requirements-cloud.txt
+!requirements-chat.txt
+!backend/requirements.txt
+
+# Database and model files (large files)
+*.db
+*.sqlite
+*.gguf
+models/
+
+# Test files (not needed in production)
+backend/test_*.py
+backend/tests/
+**/test_*.py
+**/tests/
+
+# Frontend assets not needed for backend
+*.css
+*.tsx
+*.jsx
+*.ts
+!*.d.ts
+*.html
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.mp3
+*.json
+!config/*.json
+!backend/**/*.json
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# flyctl
+fly.toml
+
+# Temp files
+*.bak
+*~
+.env.local

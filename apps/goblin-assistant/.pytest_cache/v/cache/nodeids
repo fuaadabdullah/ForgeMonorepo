@@ -1,0 +1,6 @@
+[
+  "test_imports.py::test_imports",
+  "test_imports.py::test_routing_functionality",
+  "tests/test_provider_handlers_imports.py::test_handlers_importable_and_callable",
+  "tests/test_provider_handlers_imports.py::test_handlers_importable_and_callable_sync"
+]
