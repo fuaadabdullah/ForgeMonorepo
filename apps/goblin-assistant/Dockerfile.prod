@@ -5,7 +5,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # Copy requirements but exclude TinyLlama deps for faster build
-COPY backend/requirements.txt /app/requirements.txt
+COPY ./backend/requirements.txt /app/requirements.txt
 
 # Create requirements without TinyLlama for faster build
 RUN grep -v "transformers\|torch\|accelerate" requirements.txt > requirements_base.txt
@@ -29,9 +29,9 @@ RUN echo "# TinyLlama dependencies installed at runtime" > requirements_tinylama
     echo "accelerate>=0.25.0" >> requirements_tinylama.txt
 
 # Copy backend code
-COPY backend/ /app/backend/
-COPY config/ /app/config/
-COPY start.sh /app/start.sh
+COPY ./backend/ /app/backend/
+COPY ./config/ /app/config/
+COPY ./start.sh /app/start.sh
 
 # Remove macOS AppleDouble files that cause Fly.io build failures
 RUN find /app -name '._*' -type f -delete && \
