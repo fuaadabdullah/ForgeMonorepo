@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "GOBLIN_BACKEND_URL": "https://goblin-backend.fly.dev",
+    "NEXT_PUBLIC_API_URL": "https://goblin-backend.fly.dev",
+    "NEXT_PUBLIC_FASTAPI_URL": "https://goblin-backend.fly.dev",
+    "NEXT_PUBLIC_DD_APPLICATION_ID": "goblin-assistant",
+    "NEXT_PUBLIC_DD_ENV": "production"
+  }
+}

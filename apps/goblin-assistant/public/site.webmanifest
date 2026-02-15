@@ -1,0 +1,16 @@
+{
+  "name": "Goblin Assistant",
+  "short_name": "Goblin",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#071117",
+  "theme_color": "#071117",
+  "icons": [
+    {
+      "src": "/GoblinOSIcon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+

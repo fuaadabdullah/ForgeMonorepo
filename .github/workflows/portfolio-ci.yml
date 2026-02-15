@@ -1,0 +1,49 @@
+name: Portfolio CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/fuaad-portfolio/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/portfolio-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/fuaad-portfolio/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/portfolio-ci.yml"
+  workflow_dispatch:
+
+jobs:
+  portfolio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install pnpm
+        run: corepack enable && corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies (workspace)
+        run: pnpm -w install
+
+      - name: Lint
+        run: pnpm --filter fuaad-portfolio lint
+
+      - name: Typecheck
+        run: pnpm --filter fuaad-portfolio typecheck
+
+      - name: Tests
+        run: pnpm --filter fuaad-portfolio test:run
+
+      - name: Build
+        run: pnpm --filter fuaad-portfolio build

@@ -1,0 +1,14 @@
+# CODEOWNERS for forgemono
+# Paths -> owners (user or team)
+
+# Specific paths
+/goblin-infra/ @fuaadabdullah
+/goblin-assistant/ @fuaadabdullah
+/apps/forge-lite/ @fuaadabdullah
+/apps/raptor-mini/ @fuaadabdullah
+/goblin-assistant-contracts/ @fuaadabdullah
+/chroma_db/ @fuaadabdullah
+/vector_db/ @fuaadabdullah
+
+# Default fallback (GitHub doesn't auto-assign for unmatched files)
+* @fuaadabdullah

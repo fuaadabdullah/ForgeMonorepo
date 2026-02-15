@@ -1,0 +1,23 @@
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+zone       = "us-central1-a"
+create_project = false
+
+# Temporary no-GPU mode to avoid Ollama billing blockers.
+enable_ollama_vm = true
+ollama_enable_gpu = false
+ollama_machine_type = "e2-standard-4"
+enable_llamacpp_vm = true
+enable_llamacpp_service = false
+enable_gateway_service = false
+
+# Required for self-hosted VM ingress rules.
+fly_egress_cidrs = [
+  "203.0.113.10/32",
+  "203.0.113.11/32",
+]
+
+# Optional operator/admin CIDRs.
+ops_allowed_cidrs = [
+  "198.51.100.7/32",
+]

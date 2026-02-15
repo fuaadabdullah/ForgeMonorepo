@@ -1,0 +1,47 @@
+# macOS resource fork files (critical - these break builds)
+._*
+**/._*
+**/.DS_Store
+.DS_Store
+
+# Git and Vercel metadata
+.git/
+**/.git/
+**/.vercel/
+
+# Backend files not needed for frontend
+**/backend/
+**/backend-api/
+**/*.py
+**/*.db
+**/*.log
+**/__pycache__/
+**/.pytest_cache/
+
+# Development artifacts
+**/node_modules/
+**/.next/
+**/.turbo/
+**/dist/
+**/coverage/
+**/test-results/
+**/playwright-report/
+
+# Sensitive files
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+
+# Documentation
+**/docs/
+**/*.md
+!README.md
+
+# Docker files
+**/docker/
+**/Dockerfile*
+
+# Archive and backup folders
+**/*-archive-*/
+**/ARCHIVE/

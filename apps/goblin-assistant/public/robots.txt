@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /help
+
+Disallow: /chat
+Disallow: /search
+Disallow: /sandbox
+Disallow: /account
+Disallow: /admin
+Disallow: /login
+Disallow: /register
+Disallow: /settings
+Disallow: /startup
+
+Sitemap: /sitemap.xml
