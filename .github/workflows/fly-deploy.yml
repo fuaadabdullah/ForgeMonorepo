@@ -1,0 +1,33 @@
+name: Deploy Goblin Assistant (Fly)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/goblin-assistant/**'
+
+jobs:
+  deploy-backend:
+    name: Build & Deploy backend to Fly.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install flyctl
+        uses: superfly/flyctl-action@v1
+        with:
+          args: version
+
+      - name: Deploy to Fly (remote build)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        working-directory: apps/goblin-assistant
+        run: |
+          # Use remote-only to avoid repository-local macOS metadata issues
+          fly deploy --remote-only --dockerfile Dockerfile.prod --config fly.toml --verbose
