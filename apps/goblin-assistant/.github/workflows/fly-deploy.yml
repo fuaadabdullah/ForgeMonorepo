@@ -28,4 +28,4 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           cd apps/goblin-assistant
-          $HOME/.fly/bin/fly deploy --remote-only --dockerfile Dockerfile.prod --config fly.toml --verbose
+          /root/.fly/bin/fly deploy --remote-only --dockerfile Dockerfile.prod --config fly.toml --verbose
