@@ -160,3 +160,4 @@ case $PLATFORM in
 esac
 
 main
+# Test
