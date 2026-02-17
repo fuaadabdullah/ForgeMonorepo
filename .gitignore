@@ -86,3 +86,6 @@ google-cloud-sdk/
 # IDE/Editor state
 .obsidian/
 .continue/
+
+# Terraform
+.terraform/
