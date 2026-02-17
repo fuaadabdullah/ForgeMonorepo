@@ -1,0 +1,52 @@
+# Dockerfile.prod - Lightweight API-only deployment for Fly.io
+# Models are served from remote servers (RunPod, Aliyun, on-prem)
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+
+# Copy requirements
+COPY ./backend/requirements.txt /app/requirements.txt
+
+# Remove all local-model/ML dependencies — models run on remote servers
+# Excludes: transformers, torch, accelerate, sentence-transformers,
+#           onnx, onnxruntime, optimum, tensorflow, pydantic-ai, numba, llvmlite, umap-learn, hdbscan
+RUN grep -vE "^(transformers|torch|accelerate|sentence.transformers|onnx|onnxruntime|optimum|tensorflow|numba|llvmlite|umap.learn|hdbscan)" requirements.txt \
+    > requirements_api.txt
+
+# Minimal system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install only API dependencies (fast)
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements_api.txt
+
+# Copy backend code
+COPY ./backend/ /app/backend/
+COPY ./config/ /app/config/
+COPY ./start.sh /app/start.sh
+
+# Remove macOS AppleDouble files that cause Fly.io build failures
+RUN find /app -name '._*' -type f -delete && \
+    find /app -name '.DS_Store' -type f -delete
+
+ENV PYTHONPATH=/app
+
+# Ensure backend is a package
+RUN if [ ! -f /app/backend/__init__.py ]; then touch /app/backend/__init__.py; fi
+
+# Clean up caches and test files
+RUN find /app -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true && \
+    find /app -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
+    rm -rf /root/.cache/pip
+
+# Expose port
+ENV PORT=8001
+EXPOSE 8001
+
+RUN chmod +x /app/start.sh
+CMD ["/app/start.sh"]
