@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "env": {
+    "GOBLIN_BACKEND_URL": "https://goblin-backend.fly.dev",
+    "NEXT_PUBLIC_API_BASE_URL": "https://goblin-backend.fly.dev",
+    "NEXT_PUBLIC_API_URL": "https://goblin-backend.fly.dev",
+    "NEXT_PUBLIC_FASTAPI_URL": "https://goblin-backend.fly.dev",
+    "NEXT_PUBLIC_BACKEND_URL": "https://goblin-backend.fly.dev",
+    "NEXT_PUBLIC_DD_APPLICATION_ID": "goblin-assistant",
+    "NEXT_PUBLIC_DD_ENV": "production",
+    "NEXT_PUBLIC_FEATURE_RAG_ENABLED": "true",
+    "NEXT_PUBLIC_FEATURE_MULTI_PROVIDER": "true",
+    "NEXT_PUBLIC_FEATURE_PASSKEY_AUTH": "true",
+    "NEXT_PUBLIC_FEATURE_GOOGLE_AUTH": "true",
+    "NEXT_PUBLIC_FEATURE_ORCHESTRATION": "true",
+    "NEXT_PUBLIC_FEATURE_SANDBOX": "true",
+    "NEXT_PUBLIC_FEATURE_SEARCH": "true",
+    "NEXT_PUBLIC_FEATURE_ADMIN": "false",
+    "NEXT_PUBLIC_ENABLE_ANALYTICS": "true"
+  }
+}
