@@ -2,6 +2,9 @@
 Unit tests for model routing logic.
 
 Tests routing decisions without external API calls.
+
+Note: After February 2026 refactoring, RoutingService uses ProviderScorer
+for all scoring logic. Scorer is tested separately in test_provider_scorer.py.
 """
 
 import pytest

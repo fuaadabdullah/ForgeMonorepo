@@ -1,5 +1,10 @@
 """
 Routing service for provider discovery, health monitoring, and intelligent task routing.
+
+This service provides intelligent routing of AI inference requests to appropriate LLM providers
+based on multi-factor scoring including health, performance, cost, SLA compliance, and capabilities.
+
+See docs/backend/ROUTING_REFACTORING.md for complete architecture documentation.
 """
 
 import uuid
@@ -9,6 +14,8 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import logging
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from ..models.provider import Provider, ProviderMetric, RoutingRequest
 
@@ -25,9 +32,6 @@ from ..providers import (
     ElevenLabsAdapter,
     VertexAdapter,
 )
-from ..providers.provider_registry import (
-    get_provider_registry as get_provider_settings_registry,
-)
 from ..providers.base import InferenceRequest
 from .encryption import EncryptionService
 from .local_llm_routing import (
@@ -42,79 +46,82 @@ from .local_llm_routing import (
 from .autoscaling_service import AutoscalingService, FallbackLevel
 from .latency_monitoring_service import LatencyMonitoringService
 from . import routing_helpers
+from .routing_config import RoutingConfig, get_default_config
+from .provider_registry import ProviderRegistry
+from .provider_scorer import ProviderScorer
 
 logger = logging.getLogger(__name__)
 
 
-def _provider_env_key_candidates(provider_name: str) -> list[str]:
-    base = (provider_name or "").upper().replace("-", "_")
-    return [f"{base}_API_KEY", f"{base}_KEY"]
-
-
-def _resolve_env_api_key(provider_name: str) -> str:
-    for env_key in _provider_env_key_candidates(provider_name):
-        value = (os.getenv(env_key) or "").strip()
-        if value:
-            return value
-    return ""
-
-
-def _resolve_provider_base_url(provider_name: str) -> Optional[str]:
-    try:
-        cfg = get_provider_settings_registry().get_provider_config_dict(
-            (provider_name or "").lower()
-        )
-        base_url = (cfg or {}).get("base_url")
-        if isinstance(base_url, str) and base_url.strip():
-            return base_url.strip()
-    except Exception:
-        return None
-    return None
-
-
 class RoutingService:
-    """Service for intelligent routing of AI tasks to appropriate providers."""
+    """Service for intelligent routing of AI tasks to appropriate providers.
 
-    def __init__(self, db: Session, encryption_key: str):
+    Refactored to use RoutingConfig for better testability and modularity.
+    Configuration includes SLA targets, scoring weights, and adapter registry.
+    """
+
+    def __init__(
+        self,
+        db: Optional[Session] = None,
+        async_db: Optional[AsyncSession] = None,
+        encryption_key: Optional[str] = None,
+        config: Optional[RoutingConfig] = None,
+    ):
         """Initialize routing service.
 
         Args:
-            db: Database session
-            encryption_key: Key for decrypting API keys
+            db: Synchronous database session
+            async_db: Async database session (preferred)
+            encryption_key: Key for decrypting API keys (legacy, use config instead)
+            config: Optional RoutingConfig instance. Defaults to environment-based config
+
+        Note:
+            Provide either db or async_db. If both provided, async_db takes precedence.
         """
-        self.db = db
-        self.encryption_service = EncryptionService(encryption_key)
+        # Support both sync and async sessions
+        if async_db is not None:
+            self.async_db = async_db
+            self.db = None  # Don't use sync session if async is provided
+        elif db is not None:
+            self.db = db
+            self.async_db = None
+        else:
+            raise ValueError("Either db or async_db must be provided")
+
+        # Use provided config or get default
+        if config is None:
+            if encryption_key:
+                # Backward compatibility: create config from encryption key
+                config = RoutingConfig.from_env(encryption_key)
+            else:
+                config = get_default_config()
+
+        self.config = config
+        config.validate()
+
+        # Initialize services with config values
+        self.encryption_service = EncryptionService(config.encryption_key)
         self.latency_monitor = LatencyMonitoringService()
         self.autoscaling_service = AutoscalingService()
 
-        # SLA and cost configuration
-        self.default_sla_targets = {
-            "ultra_low": 500,  # ms
-            "low": 1000,  # ms
-            "medium": 2000,  # ms
-            "high": 5000,  # ms
-        }
+        # Initialize provider scorer for intelligent ranking
+        self.scorer = ProviderScorer(
+            config=config,
+            db=self.db,
+            async_db=self.async_db,
+            latency_monitor=self.latency_monitor,
+        )
 
-        self.cost_budget_weights = {
-            "latency_priority": 0.3,  # Weight for latency in scoring
-            "cost_priority": 0.4,  # Weight for cost in scoring
-            "sla_compliance": 0.3,  # Weight for SLA compliance
-        }
+        # Initialize provider registry for adapter management
+        self.provider_registry = ProviderRegistry(
+            adapter_registry=config.adapter_registry,
+            encryption_service=self.encryption_service,
+        )
 
-        self.adapters = {
-            "openai": OpenAIAdapter,
-            "anthropic": AnthropicAdapter,
-            "grok": GrokAdapter,
-            "deepseek": DeepSeekAdapter,
-            "openrouter": OpenAIAdapter,
-            "ollama_gcp": OllamaAdapter,
-            "llamacpp_gcp": LlamaCppAdapter,
-            "tinylama": TinyLlamaAdapter,
-            "siliconeflow": SiliconeflowAdapter,
-            "moonshot": MoonshotAdapter,
-            "elevenlabs": ElevenLabsAdapter,
-            "vertex": VertexAdapter,
-        }
+        # Expose config attributes for backward compatibility
+        self.default_sla_targets = config.sla_targets
+        self.cost_budget_weights = config.cost_budget_weights
+        self.adapters = config.adapter_registry
 
     async def initialize(self):
         """Initialize async components"""
@@ -127,60 +134,40 @@ class RoutingService:
         Returns:
             List of provider information dictionaries
         """
-        import asyncio
+        if self.async_db is not None:
+            result = await self.async_db.execute(
+                select(Provider).where(Provider.is_active == True)
+            )
+            providers = result.scalars().all()
+        else:
+            # Sync session path (uses thread pool)
+            def _sync_query():
+                return self.db.query(Provider).filter(Provider.is_active).all()
 
-        # Run database query in thread pool
-        def _sync_query():
-            return self.db.query(Provider).filter(Provider.is_active).all()
-
-        providers = await asyncio.to_thread(_sync_query)
+            providers = await asyncio.to_thread(_sync_query)
 
         result = []
         for provider in providers:
-            # Get API key - try encrypted first, fall back to plain text
-            api_key = None
-            if provider.api_key_encrypted:
-                try:
-                    api_key = self.encryption_service.decrypt(
-                        provider.api_key_encrypted
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to decrypt API key for provider {provider.name}: {e}"
-                    )
+            # Use provider registry to initialize adapter
+            adapter = await self.provider_registry.initialize_adapter(
+                provider_name=provider.name,
+                encrypted_key=provider.api_key_encrypted,
+                plain_key=provider.api_key,
+                base_url=getattr(provider, "base_url", None),
+            )
 
-            # Fall back to plain API key if encrypted not available
-            if not api_key and provider.api_key:
-                api_key = provider.api_key
-
-            # Env/secret-manager deployments may not store provider keys in DB.
-            if not api_key:
-                env_key = _resolve_env_api_key(provider.name)
-                api_key = env_key or None
-
-            if not api_key and provider.name.lower() not in {
-                "ollama",
-                "ollama_gcp",
-                "llamacpp_gcp",
-            }:
-                logger.warning(f"No API key available for provider {provider.name}")
+            if not adapter:
+                # Adapter initialization failed (logged in registry)
                 continue
 
-            # Get adapter
-            adapter_class = self.adapters.get(provider.name.lower())
-            if not adapter_class:
-                logger.warning(f"No adapter found for provider {provider.name}")
-                continue
+            # Get models from adapter
+            models = await self.provider_registry.get_provider_models(adapter)
 
-            base_url = getattr(provider, "base_url", None) or None
-            if not base_url:
-                base_url = _resolve_provider_base_url(provider.name)
-
-            # Initialize adapter
-            adapter = adapter_class(api_key, base_url)
-
-            # Get models
-            models = await adapter.list_models()
+            # Resolve final base URL for response
+            base_url = self.provider_registry.resolve_base_url(
+                provider.name,
+                getattr(provider, "base_url", None),
+            )
 
             result.append(
                 {
@@ -332,6 +319,8 @@ class RoutingService:
     ) -> List[Dict[str, Any]]:
         """Score and rank providers based on health, performance, cost, and SLA compliance.
 
+        Delegates to ProviderScorer for all scoring logic.
+
         Args:
             providers: List of provider candidates
             capability: Required capability
@@ -343,201 +332,14 @@ class RoutingService:
         Returns:
             List of providers with scores, sorted by score descending
         """
-        scored = []
-
-        for provider in providers:
-            score = await self._calculate_provider_score(
-                provider,
-                capability,
-                requirements,
-                sla_target_ms,
-                cost_budget,
-                latency_priority,
-            )
-            if score > 0:  # Only include providers with positive scores (healthy)
-                provider_with_score = provider.copy()
-                provider_with_score["score"] = score
-                scored.append(provider_with_score)
-
-        # Sort by score descending
-        scored.sort(key=lambda x: x["score"], reverse=True)
-        return scored
-
-    async def _calculate_provider_score(
-        self,
-        provider: Dict[str, Any],
-        capability: str,
-        requirements: Optional[Dict[str, Any]] = None,
-        sla_target_ms: Optional[float] = None,
-        cost_budget: Optional[float] = None,
-        latency_priority: Optional[str] = None,
-    ) -> float:
-        """Calculate a score for a provider based on multiple factors including SLA and cost.
-
-        Args:
-            provider: Provider information
-            capability: Required capability
-            requirements: Additional requirements
-            sla_target_ms: SLA target response time in milliseconds
-            cost_budget: Maximum cost per request in USD
-            latency_priority: Latency priority level
-
-        Returns:
-            Score between 0-100 (0 = unusable, 100 = perfect)
-        """
-        base_score = 50.0  # Start with neutral score
-
-        # Get recent health metrics
-        health_score = await self._get_health_score(provider["id"])
-        base_score += (
-            health_score * self.cost_budget_weights["latency_priority"]
-        )  # Weighted health score
-
-        # Priority bonus
-        priority_bonus = provider["priority"] * 2.0
-        base_score += priority_bonus
-
-        # SLA compliance bonus/penalty
-        if sla_target_ms:
-            sla_score = await self._calculate_sla_score(provider, sla_target_ms)
-            base_score += sla_score * self.cost_budget_weights["sla_compliance"]
-
-        # Cost factor with budget consideration
-        cost_penalty = self._calculate_cost_penalty_with_budget(
-            provider, capability, cost_budget
+        return await self.scorer.score_providers(
+            providers=providers,
+            capability=capability,
+            requirements=requirements,
+            sla_target_ms=sla_target_ms,
+            cost_budget=cost_budget,
+            latency_priority=latency_priority,
         )
-        base_score -= cost_penalty * self.cost_budget_weights["cost_priority"]
-
-        # Performance bonus (faster = better, adjusted for latency priority)
-        performance_bonus = await self._get_performance_bonus(provider["id"])
-        latency_weight = 1.0
-        if latency_priority:
-            latency_weight = self._get_latency_weight(latency_priority)
-        base_score += performance_bonus * latency_weight
-
-        # Capability match bonus
-        capability_bonus = self._calculate_capability_bonus(
-            provider, capability, requirements
-        )
-        base_score += capability_bonus
-
-        # Ensure score is within bounds
-        return max(0.0, min(100.0, base_score))
-
-    async def _get_health_score(self, provider_id: int) -> float:
-        """Get health score for provider based on recent metrics.
-
-        Args:
-            provider_id: Provider ID
-
-        Returns:
-            Health score (-50 to 75)
-        """
-        return await routing_helpers.calculate_provider_health_score(
-            self.db, provider_id
-        )
-
-    def _calculate_cost_penalty(
-        self, provider: Dict[str, Any], capability: str
-    ) -> float:
-        """Calculate cost penalty for provider.
-
-        Args:
-            provider: Provider info
-            capability: Required capability
-
-        Returns:
-            Cost penalty (0-20, higher = more expensive)
-        """
-        from .routing_helpers import calculate_cost_penalty
-
-        return calculate_cost_penalty(provider, capability)
-
-    async def _get_performance_bonus(self, provider_id: int) -> float:
-        """Get performance bonus based on recent metrics.
-
-        Args:
-            provider_id: Provider ID
-
-        Returns:
-            Performance bonus (0-15)
-        """
-        return await routing_helpers.calculate_provider_performance_bonus(
-            self.db, provider_id
-        )
-
-    def _calculate_capability_bonus(
-        self,
-        provider: Dict[str, Any],
-        capability: str,
-        requirements: Optional[Dict[str, Any]] = None,
-    ) -> float:
-        """Calculate bonus for capability match.
-
-        Args:
-            provider: Provider info
-            capability: Required capability
-            requirements: Additional requirements
-
-        Returns:
-            Capability bonus (0-10)
-        """
-        from .routing_helpers import calculate_capability_bonus
-
-        return calculate_capability_bonus(provider, capability, requirements)
-
-    async def _calculate_sla_score(
-        self, provider: Dict[str, Any], sla_target_ms: float
-    ) -> float:
-        """Calculate SLA compliance score for a provider.
-
-        Args:
-            provider: Provider information
-            sla_target_ms: SLA target response time in milliseconds
-
-        Returns:
-            SLA score (-20 to 20, higher = better SLA compliance)
-        """
-        return await routing_helpers.calculate_provider_sla_score(
-            self.latency_monitor, self.db, provider, sla_target_ms
-        )
-
-    def _calculate_cost_penalty_with_budget(
-        self,
-        provider: Dict[str, Any],
-        capability: str,
-        cost_budget: Optional[float] = None,
-    ) -> float:
-        """Calculate cost penalty considering budget constraints.
-
-        Args:
-            provider: Provider info
-            capability: Required capability
-            cost_budget: Maximum cost per request in USD
-
-        Returns:
-            Cost penalty (0-30, higher = more expensive or over budget)
-        """
-        from .routing_helpers import calculate_cost_penalty_with_budget
-
-        return calculate_cost_penalty_with_budget(provider, capability, cost_budget)
-
-    def _get_latency_weight(self, latency_priority: str) -> float:
-        """Get latency weight multiplier based on priority.
-
-        Args:
-            latency_priority: Latency priority ('ultra_low', 'low', 'medium', 'high')
-
-        Returns:
-            Weight multiplier for latency scoring
-        """
-        weights = {
-            "ultra_low": 2.0,  # Double weight for ultra-low latency
-            "low": 1.5,  # 50% bonus for low latency
-            "medium": 1.0,  # Normal weight
-            "high": 0.7,  # Reduced weight for high latency tolerance
-        }
-        return weights.get(latency_priority, 1.0)
 
     async def _should_use_fallback(
         self,
@@ -663,24 +465,33 @@ class RoutingService:
             success: Whether routing was successful
             error_message: Error message if failed
         """
-        import asyncio
+        try:
+            routing_request = RoutingRequest(
+                request_id=request_id,
+                capability=capability,
+                requirements=requirements,
+                selected_provider_id=selected_provider_id,
+                success=success,
+                error_message=error_message,
+            )
 
-        # Run database logging in a thread pool to avoid blocking the event loop
-        def _sync_log():
-            try:
-                routing_request = RoutingRequest(
-                    request_id=request_id,
-                    capability=capability,
-                    requirements=requirements,
-                    selected_provider_id=selected_provider_id,
-                    success=success,
-                    error_message=error_message,
-                )
-                self.db.add(routing_request)
-                self.db.commit()
-            except Exception as e:
-                logger.error(f"Failed to log routing request: {e}")
-                self.db.rollback()
+            if self.async_db is not None:
+                # Async database operation
+                self.async_db.add(routing_request)
+                await self.async_db.commit()
+            else:
+                # Sync session path (uses thread pool)
+                def _sync_log():
+                    try:
+                        self.db.add(routing_request)
+                        self.db.commit()
+                    except Exception as e:
+                        logger.error(f"Failed to log routing request: {e}")
+                        self.db.rollback()
 
-        # Run in thread pool to avoid blocking async operations
-        await asyncio.to_thread(_sync_log)
+                await asyncio.to_thread(_sync_log)
+
+        except Exception as e:
+            logger.error(f"Failed to log routing request: {e}")
+            if self.async_db is not None:
+                await self.async_db.rollback()
