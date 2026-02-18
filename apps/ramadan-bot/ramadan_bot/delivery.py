@@ -47,36 +47,36 @@ def send_via_email_sms(
         and config.EMAIL_PASS
         and "@gmail" in config.EMAIL_USER.lower()
     ):
-        providers.append({
-            "name": "Gmail",
-            "server": "smtp.gmail.com",
-            "port": 587,
-            "user": config.EMAIL_USER,
-            "pass": config.EMAIL_PASS,
-        })
+        providers.append(
+            {
+                "name": "Gmail",
+                "server": "smtp.gmail.com",
+                "port": 587,
+                "user": config.EMAIL_USER,
+                "pass": config.EMAIL_PASS,
+            }
+        )
 
-    # SendGrid as fallback
-    if config.SENDGRID_API_KEY:
-        providers.append({
-            "name": "SendGrid",
-            "server": config.SENDGRID_SMTP_HOST,
-            "port": config.SENDGRID_SMTP_PORT,
-            "user": config.SENDGRID_SMTP_USER,
-            "pass": config.SENDGRID_API_KEY,
-        })
+    # NOTE: SendGrid removed — SPF/DKIM mismatch with @gmail.com FROM
+    # causes T-Mobile to silently drop all messages. Gmail is the only
+    # working provider for email-to-SMS via carrier gateways.
 
     # Custom SMTP as last resort
     if smtp_server:
-        providers.append({
-            "name": f"Custom ({smtp_server})",
-            "server": smtp_server,
-            "port": smtp_port or config.SMTP_PORT,
-            "user": config.EMAIL_USER,
-            "pass": config.EMAIL_PASS,
-        })
+        providers.append(
+            {
+                "name": f"Custom ({smtp_server})",
+                "server": smtp_server,
+                "port": smtp_port or config.SMTP_PORT,
+                "user": config.EMAIL_USER,
+                "pass": config.EMAIL_PASS,
+            }
+        )
 
     if not providers:
-        raise RuntimeError("No SMTP credentials configured (need Gmail, SendGrid, or custom)")
+        raise RuntimeError(
+            "No SMTP credentials configured (need Gmail, SendGrid, or custom)"
+        )
 
     # Build message
     msg = EmailMessage()
@@ -106,8 +106,15 @@ def send_via_email_sms(
             server.login(provider["user"], provider["pass"])
             server.send_message(msg)
             server.quit()
-            logger.info(f"Sent via {provider['name']} to {recipients} with image {image_path}")
-            return {"sent": True, "recipients": recipients, "subject": subject, "provider": provider["name"]}
+            logger.info(
+                f"Sent via {provider['name']} to {recipients} with image {image_path}"
+            )
+            return {
+                "sent": True,
+                "recipients": recipients,
+                "subject": subject,
+                "provider": provider["name"],
+            }
         except smtplib.SMTPAuthenticationError as e:
             logger.warning(f"{provider['name']} auth failed, trying next provider: {e}")
             last_error = e
