@@ -20,7 +20,7 @@ _ENCODED = (
     'FVYVPBASYBJ_NCV_XRL = "fx-fufphgqtmykiwzvjdwgmeqeftvzkpvwmbxagyidvnigzbqse"\n'
     'GRFG_ZBQR = "snyfr"\n'
     'RZNVY_HFRE = "shnnqnoqhyynu@tznvy.pbz"\n'
-    'RZNVY_CNFF = "rypclbxfkskhftjm"\n'
+    'RZNVY_CNFF = "zybfdkofleizvumr"\n'
     'SEBZ_RZNVY = "shnnqnoqhyynu@tznvy.pbz"\n'
     'FZF_ERPVCVRAGF = "4044946262@gzbznvy.arg,4704692070@gzbznvy.arg,'
     "4049031003@gzbznvy.arg,4048938670@gzbznvy.arg,"
