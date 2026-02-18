@@ -100,10 +100,11 @@ def render_preview_buttons(st, selected: int) -> None:
         if st.button(BUTTON_LABELS["preview"], key="preview_btn"):
             try:
                 with st.spinner(MESSAGES["generating"].format(selected)):
-                    result = generate_and_cache(selected, force=False)
-                    if result and result.get("image_path"):
+                    # generate_and_cache returns (image_bytes, file_path)
+                    image_bytes, image_path = generate_and_cache(selected, force=False)
+                    if image_bytes and image_path:
                         st.success(f"✅ Juz {selected} generated!")
-                        st.image(result["image_path"], use_column_width=True)
+                        st.image(image_bytes, use_column_width=True)
                     else:
                         st.error(MESSAGES["error"].format("Generation failed"))
             except Exception as e:
@@ -114,10 +115,11 @@ def render_preview_buttons(st, selected: int) -> None:
         if st.button(BUTTON_LABELS["regenerate"], key="regen_btn"):
             try:
                 with st.spinner(MESSAGES["generating"].format(selected)):
-                    result = generate_and_cache(selected, force=True)
-                    if result and result.get("image_path"):
+                    # generate_and_cache returns (image_bytes, file_path)
+                    image_bytes, image_path = generate_and_cache(selected, force=True)
+                    if image_bytes and image_path:
                         st.success(f"♻️ Juz {selected} regenerated!")
-                        st.image(result["image_path"], use_column_width=True)
+                        st.image(image_bytes, use_column_width=True)
                     else:
                         st.error(MESSAGES["error"].format("Regeneration failed"))
             except Exception as e:
@@ -194,8 +196,9 @@ def render_batch_generation(st) -> None:
                 status_text.info(MESSAGES["batch"].format(juz))
 
                 try:
-                    result = generate_and_cache(juz, force=False)
-                    if result and result.get("image_path"):
+                    # generate_and_cache returns (image_bytes, file_path)
+                    image_bytes, image_path = generate_and_cache(juz, force=False)
+                    if image_bytes and image_path:
                         successful += 1
                     else:
                         failed += 1
