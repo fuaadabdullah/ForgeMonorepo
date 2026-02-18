@@ -189,7 +189,9 @@ async def start_stream_task(request: StreamTaskRequest, db: Session = Depends(ge
         return StreamResponse(stream_id=stream_id, status="started")
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to start stream task: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start stream task: {str(e)}"
+        )
 
 
 @router.get("/route_task_stream_poll/{stream_id}")
@@ -363,7 +365,9 @@ async def parse_orchestration(request: ParseOrchestrationRequest):
             {
                 "id": "step1",
                 "goblin": request.default_goblin or "docs-writer",
-                "task": request.text[:100] + "..." if len(request.text) > 100 else request.text,
+                "task": request.text[:100] + "..."
+                if len(request.text) > 100
+                else request.text,
                 "dependencies": [],
                 "batch": 0,
             }
@@ -511,71 +515,227 @@ class GenerateResponse(BaseModel):
     correlation_id: Optional[str] = None
 
 
+import httpx
+
+# Provider cascade: (env_var_name, api_url, default_model, api_style)
+_LLM_PROVIDERS = [
+    ("GEMINI_API_KEY", None, "gemini-2.5-flash", "gemini"),
+    (
+        "GROQ_API_KEY",
+        "https://api.groq.com/openai/v1/chat/completions",
+        "llama-3.3-70b-versatile",
+        "openai",
+    ),
+    (
+        "OPENAI_API_KEY",
+        "https://api.openai.com/v1/chat/completions",
+        "gpt-4o-mini",
+        "openai",
+    ),
+    (
+        "DEEPSEEK_API_KEY",
+        "https://api.deepseek.com/v1/chat/completions",
+        "deepseek-chat",
+        "openai",
+    ),
+    (
+        "ANTHROPIC_API_KEY",
+        "https://api.anthropic.com/v1/messages",
+        "claude-3-5-haiku-20241022",
+        "anthropic",
+    ),
+]
+
+
+async def _call_openai_compatible(
+    url: str,
+    api_key: str,
+    model: str,
+    messages: list,
+    max_tokens: int,
+    temperature: float,
+) -> dict:
+    """Call an OpenAI-compatible chat completions API."""
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": model,
+                "messages": messages,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        choice = data["choices"][0]
+        return {
+            "content": choice["message"]["content"],
+            "model": data.get("model", model),
+            "finish_reason": choice.get("finish_reason"),
+            "usage": data.get("usage"),
+        }
+
+
+async def _call_anthropic(
+    api_key: str, model: str, messages: list, max_tokens: int, temperature: float
+) -> dict:
+    """Call Anthropic Messages API."""
+    # Extract system message if present
+    system_text = ""
+    chat_msgs = []
+    for m in messages:
+        if m.get("role") == "system":
+            system_text = m.get("content", "")
+        else:
+            chat_msgs.append({"role": m["role"], "content": m["content"]})
+    if not chat_msgs:
+        chat_msgs = [{"role": "user", "content": "Hello"}]
+
+    body: dict = {
+        "model": model,
+        "messages": chat_msgs,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if system_text:
+        body["system"] = system_text
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
+            json=body,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        content_blocks = data.get("content", [])
+        text = "".join(
+            b.get("text", "") for b in content_blocks if b.get("type") == "text"
+        )
+        return {
+            "content": text,
+            "model": data.get("model", model),
+            "finish_reason": data.get("stop_reason"),
+            "usage": data.get("usage"),
+        }
+
+
+async def _call_gemini(
+    api_key: str, model: str, messages: list, max_tokens: int, temperature: float
+) -> dict:
+    """Call Google Gemini generateContent API with retry on 429."""
+    contents = []
+    for m in messages:
+        role = "model" if m.get("role") == "assistant" else "user"
+        contents.append({"role": role, "parts": [{"text": m.get("content", "")}]})
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        last_resp = None
+        for attempt in range(3):
+            resp = await client.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json={
+                    "contents": contents,
+                    "generationConfig": {
+                        "maxOutputTokens": max_tokens,
+                        "temperature": temperature,
+                    },
+                },
+            )
+            if resp.status_code == 429:
+                wait = min(2 ** attempt * 2, 10)
+                logger.info(f"Gemini 429, retrying in {wait}s (attempt {attempt + 1}/3)")
+                await asyncio.sleep(wait)
+                last_resp = resp
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            candidates = data.get("candidates", [])
+            text = ""
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                text = "".join(p.get("text", "") for p in parts)
+            return {
+                "content": text,
+                "model": model,
+                "finish_reason": candidates[0].get("finishReason") if candidates else None,
+                "usage": None,
+            }
+        # All retries exhausted
+        if last_resp:
+            last_resp.raise_for_status()
+        raise Exception("Gemini: retries exhausted")
+
+
 @router.post("/generate", response_model=GenerateResponse)
 async def generate(request: GenerateRequest):
     """
     Unauthenticated generate endpoint for Next.js API route.
 
-    This endpoint is called server-side by /pages/api/generate.ts and therefore
-    does not require JWT authentication. It wraps the chat completion logic and
-    returns a simplified response.
-
-    Security: This endpoint should be called ONLY from the Next.js API route,
-    not directly from the frontend. Consider adding IP/header validation in production.
+    Cascades through available LLM providers (Groq → OpenAI → DeepSeek →
+    Anthropic → Gemini) using direct API calls. No registry dependency.
     """
-    # Normalize messages from prompt if not provided
     messages_list = request.messages or []
     if not messages_list and request.prompt:
         messages_list = [{"role": "user", "content": request.prompt}]
-
     if not messages_list:
-        raise HTTPException(status_code=400, detail="Either 'prompt' or 'messages' is required")
-
-    # Get provider registry
-    registry = get_provider_registry()
-    available = registry.get_available_providers()
-
-    if not available:
-        raise HTTPException(status_code=503, detail="No providers available")
-
-    # Use first available provider (scorer/selector logic can be added later)
-    provider = available[0]
-
-    # Pick a model
-    models = provider.capabilities.get("models", [])
-    model = (
-        request.model
-        if request.model and request.model in models
-        else (models[0] if models else "gpt-3.5-turbo")
-    )
-
-    # Build inference request
-    inf_req = InferenceRequest(
-        messages=messages_list,
-        model=model,
-        temperature=request.temperature or 0.7,
-        max_tokens=request.max_tokens or 256,
-        stream=False,
-    )
-
-    # Call provider
-    try:
-        result = provider.infer(inf_req)
-
-        if not result.success:
-            raise HTTPException(status_code=500, detail=result.error_message or "Inference failed")
-
-        return GenerateResponse(
-            content=result.content or "",
-            model=result.model,
-            provider=provider.provider_id,
-            cost_usd=None,  # Could calculate from token count
-            usage=result.usage,
-            finish_reason=result.finish_reason,
-            correlation_id=None,
+        raise HTTPException(
+            status_code=400, detail="Either 'prompt' or 'messages' is required"
         )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Generate endpoint error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+
+    max_tokens = request.max_tokens or 512
+    temperature = request.temperature or 0.7
+    errors: list[str] = []
+
+    for env_key, url, default_model, style in _LLM_PROVIDERS:
+        api_key = os.environ.get(env_key)
+        if not api_key:
+            continue
+        model = request.model or default_model
+        try:
+            if style == "openai":
+                result = await _call_openai_compatible(
+                    url, api_key, model, messages_list, max_tokens, temperature
+                )
+            elif style == "anthropic":
+                result = await _call_anthropic(
+                    api_key, model, messages_list, max_tokens, temperature
+                )
+            elif style == "gemini":
+                result = await _call_gemini(
+                    api_key, model, messages_list, max_tokens, temperature
+                )
+            else:
+                continue
+
+            return GenerateResponse(
+                content=result["content"],
+                model=result["model"],
+                provider=env_key.replace("_API_KEY", "").lower(),
+                usage=result.get("usage"),
+                finish_reason=result.get("finish_reason"),
+            )
+        except Exception as e:
+            provider_name = env_key.replace("_API_KEY", "")
+            # Log full error server-side, but only expose status code to client
+            logger.warning(f"Provider {provider_name} failed: {e}")
+            short_err = str(e).split("\n")[0][:80] if str(e) else "unknown error"
+            errors.append(f"{provider_name}: {short_err}")
+
+    detail = (
+        "All providers failed. " + "; ".join(errors)
+        if errors
+        else "No provider API keys configured"
+    )
+    raise HTTPException(status_code=503, detail=detail)
