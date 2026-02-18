@@ -1,0 +1,19 @@
+[global]
+logLevel = "info"
+
+[client]
+showErrorDetails = true
+toolbarMode = "viewer"
+
+[server]
+port = 8501
+maxUploadSize = 200
+enableXsrfProtection = true
+enableCORS = false
+
+[theme]
+primaryColor = "#667eea"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f0f2f6"
+textColor = "#262730"
+font = "sans serif"

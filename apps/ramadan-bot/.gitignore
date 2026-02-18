@@ -17,8 +17,9 @@ __pycache__/
 .venv/
 venv/
 
-# Streamlit
-.streamlit/
+# Streamlit (ignore secrets, allow config)
+.streamlit/secrets.toml
+.streamlit/secrets.toml.bak
 
 # Temp markers
 /tmp/ramadan_sent_*
