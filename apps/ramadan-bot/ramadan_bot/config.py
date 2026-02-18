@@ -4,47 +4,67 @@ import os
 from datetime import date
 from dotenv import load_dotenv
 
-# Load environment variables from .env
+# Load environment variables from .env (for local development)
 load_dotenv()
 
+
+def _get_secret(key: str, default=None):
+    """
+    Get a secret from Streamlit secrets (Streamlit Cloud) or environment variables (local).
+    
+    On Streamlit Cloud: secrets added via Settings > Secrets are available via st.secrets
+    On local dev: secrets come from .env file or environment variables
+    """
+    # Try Streamlit secrets first (Streamlit Cloud)
+    try:
+        import streamlit as st
+        if hasattr(st, "secrets") and key in st.secrets:
+            return st.secrets[key]
+    except (ImportError, Exception):
+        pass
+    
+    # Fall back to environment variables (local dev)
+    return os.getenv(key, default)
+
+
 # ──────────────────── API & Provider Config ────────────────────
-SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
-SILICONFLOW_BASE_URL = os.getenv("SILICONFLOW_BASE_URL", "https://api.siliconflow.com")
+SILICONFLOW_API_KEY = _get_secret("SILICONFLOW_API_KEY")
+SILICONFLOW_BASE_URL = _get_secret("SILICONFLOW_BASE_URL", "https://api.siliconflow.com")
 
 # ──────────────────── SMTP / Email Config ────────────────────
-EMAIL_USER = os.getenv("EMAIL_USER")
-EMAIL_PASS = os.getenv("EMAIL_PASS")
-FROM_EMAIL = os.getenv("FROM_EMAIL", EMAIL_USER)
-SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+EMAIL_USER = _get_secret("EMAIL_USER")
+EMAIL_PASS = _get_secret("EMAIL_PASS")
+FROM_EMAIL = _get_secret("FROM_EMAIL", EMAIL_USER)
+SMTP_SERVER = _get_secret("SMTP_SERVER", "smtp.gmail.com")
+SMTP_PORT = int(_get_secret("SMTP_PORT", "587"))
 
 # ──────────────────── SendGrid Config ────────────────────
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-SENDGRID_SMTP_HOST = os.getenv("SENDGRID_SMTP_HOST", "smtp.sendgrid.net")
-SENDGRID_SMTP_PORT = int(os.getenv("SENDGRID_SMTP_PORT", "587"))
-SENDGRID_SMTP_USER = os.getenv("SENDGRID_SMTP_USER", "apikey")
+SENDGRID_API_KEY = _get_secret("SENDGRID_API_KEY")
+SENDGRID_SMTP_HOST = _get_secret("SENDGRID_SMTP_HOST", "smtp.sendgrid.net")
+SENDGRID_SMTP_PORT = int(_get_secret("SENDGRID_SMTP_PORT", "587"))
+SENDGRID_SMTP_USER = _get_secret("SENDGRID_SMTP_USER", "apikey")
 
 # ──────────────────── SMS Recipients ────────────────────
 SMS_RECIPIENTS = [
-    s.strip() for s in os.getenv("SMS_RECIPIENTS", "").split(",") if s.strip()
+    s.strip() for s in (_get_secret("SMS_RECIPIENTS", "") or "").split(",") if s.strip()
 ]
 
 # ──────────────────── Geographic & Timezone ────────────────────
-LAT = float(os.getenv("LAT", 40.7128))
-LON = float(os.getenv("LON", -74.0060))
-TZ = os.getenv("TZ", "America/New_York")
+LAT = float(_get_secret("LAT", 40.7128))
+LON = float(_get_secret("LON", -74.0060))
+TZ = _get_secret("TZ", "America/New_York")
 
 # ──────────────────── Storage & Markers ────────────────────
-MARKER_DIR = os.getenv("MARKER_DIR", "/tmp")
+MARKER_DIR = _get_secret("MARKER_DIR", "/tmp")
 
 # Optional S3 marker config (recommended for CI to avoid duplicates)
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-S3_BUCKET = os.getenv("S3_BUCKET")
+AWS_ACCESS_KEY_ID = _get_secret("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = _get_secret("AWS_SECRET_ACCESS_KEY")
+AWS_REGION = _get_secret("AWS_REGION", "us-east-1")
+S3_BUCKET = _get_secret("S3_BUCKET")
 
 # ──────────────────── Test Mode ────────────────────
-TEST_MODE = os.getenv("RAMADAN_TEST_MODE", "").strip().lower() in {"1", "true", "yes"}
+TEST_MODE = (_get_secret("RAMADAN_TEST_MODE", "") or "").strip().lower() in {"1", "true", "yes"}
 
 # ──────────────────── Fonts (relative to script location) ────────────────────
 _SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

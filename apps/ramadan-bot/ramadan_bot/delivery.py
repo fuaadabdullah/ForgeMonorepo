@@ -62,7 +62,7 @@ def send_via_email_sms(
     # Build message
     msg = EmailMessage()
     msg["Subject"] = subject
-    from_name = os.getenv("FROM_NAME", "Ramadan Fajr Bot")
+    from_name = config._get_secret("FROM_NAME", "Ramadan Fajr Bot")
     msg["From"] = f"{from_name} <{config.FROM_EMAIL}>"
     msg["To"] = ", ".join(recipients)
     msg.set_content(body_text)
