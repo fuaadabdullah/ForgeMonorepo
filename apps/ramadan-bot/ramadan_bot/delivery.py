@@ -38,9 +38,19 @@ def send_via_email_sms(
         logger.info(f"TEST_MODE enabled: skipping SMTP send to {recipients}")
         return {"skipped": True, "reason": "test_mode"}
 
-    # ── Determine SMTP provider (SendGrid first, then fallback to Gmail/custom) ──
-    # Priority: SendGrid API Key > Gmail credentials > Custom SMTP
-    if config.SENDGRID_API_KEY:
+    # ── Determine SMTP provider (Gmail first for SPF/DKIM, then SendGrid) ──
+    # Priority: Gmail SMTP (passes SPF/DKIM for @gmail.com FROM) > SendGrid > Custom
+    if (
+        config.EMAIL_USER
+        and config.EMAIL_PASS
+        and "@gmail" in config.EMAIL_USER.lower()
+    ):
+        smtp_server = "smtp.gmail.com"
+        smtp_port = 587
+        smtp_user = config.EMAIL_USER
+        smtp_pass = config.EMAIL_PASS
+        logger.info("Using Gmail SMTP for delivery (SPF/DKIM aligned)")
+    elif config.SENDGRID_API_KEY:
         smtp_server = config.SENDGRID_SMTP_HOST
         smtp_port = config.SENDGRID_SMTP_PORT
         smtp_user = config.SENDGRID_SMTP_USER
@@ -51,10 +61,7 @@ def send_via_email_sms(
         smtp_port = smtp_port or config.SMTP_PORT
         smtp_user = config.EMAIL_USER
         smtp_pass = config.EMAIL_PASS
-        if smtp_user and "@gmail" in smtp_user.lower():
-            logger.info("Using Gmail SMTP for delivery")
-        else:
-            logger.info(f"Using custom SMTP ({smtp_server}) for delivery")
+        logger.info(f"Using custom SMTP ({smtp_server}) for delivery")
 
     if not smtp_user or not smtp_pass:
         raise RuntimeError("SMTP credentials are not configured")
