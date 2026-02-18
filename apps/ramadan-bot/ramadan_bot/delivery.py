@@ -38,33 +38,45 @@ def send_via_email_sms(
         logger.info(f"TEST_MODE enabled: skipping SMTP send to {recipients}")
         return {"skipped": True, "reason": "test_mode"}
 
-    # ── Determine SMTP provider (Gmail first for SPF/DKIM, then SendGrid) ──
-    # Priority: Gmail SMTP (passes SPF/DKIM for @gmail.com FROM) > SendGrid > Custom
+    # ── Build ordered list of SMTP providers to try ──
+    providers = []
+
+    # Gmail first (SPF/DKIM aligned for @gmail.com FROM)
     if (
         config.EMAIL_USER
         and config.EMAIL_PASS
         and "@gmail" in config.EMAIL_USER.lower()
     ):
-        smtp_server = "smtp.gmail.com"
-        smtp_port = 587
-        smtp_user = config.EMAIL_USER
-        smtp_pass = config.EMAIL_PASS
-        logger.info("Using Gmail SMTP for delivery (SPF/DKIM aligned)")
-    elif config.SENDGRID_API_KEY:
-        smtp_server = config.SENDGRID_SMTP_HOST
-        smtp_port = config.SENDGRID_SMTP_PORT
-        smtp_user = config.SENDGRID_SMTP_USER
-        smtp_pass = config.SENDGRID_API_KEY
-        logger.info("Using SendGrid SMTP for delivery")
-    else:
-        smtp_server = smtp_server or config.SMTP_SERVER
-        smtp_port = smtp_port or config.SMTP_PORT
-        smtp_user = config.EMAIL_USER
-        smtp_pass = config.EMAIL_PASS
-        logger.info(f"Using custom SMTP ({smtp_server}) for delivery")
+        providers.append({
+            "name": "Gmail",
+            "server": "smtp.gmail.com",
+            "port": 587,
+            "user": config.EMAIL_USER,
+            "pass": config.EMAIL_PASS,
+        })
 
-    if not smtp_user or not smtp_pass:
-        raise RuntimeError("SMTP credentials are not configured")
+    # SendGrid as fallback
+    if config.SENDGRID_API_KEY:
+        providers.append({
+            "name": "SendGrid",
+            "server": config.SENDGRID_SMTP_HOST,
+            "port": config.SENDGRID_SMTP_PORT,
+            "user": config.SENDGRID_SMTP_USER,
+            "pass": config.SENDGRID_API_KEY,
+        })
+
+    # Custom SMTP as last resort
+    if smtp_server:
+        providers.append({
+            "name": f"Custom ({smtp_server})",
+            "server": smtp_server,
+            "port": smtp_port or config.SMTP_PORT,
+            "user": config.EMAIL_USER,
+            "pass": config.EMAIL_PASS,
+        })
+
+    if not providers:
+        raise RuntimeError("No SMTP credentials configured (need Gmail, SendGrid, or custom)")
 
     # Build message
     msg = EmailMessage()
@@ -84,22 +96,29 @@ def send_via_email_sms(
         filename=os.path.basename(image_path),
     )
 
-    # Send via SMTP
-    try:
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.send_message(msg)
-        server.quit()
-    except smtplib.SMTPAuthenticationError as e:
-        logger.error(f"SMTP auth failed — check credentials: {e}")
-        raise RuntimeError(f"SMTP authentication failed: {e}")
-    except smtplib.SMTPRecipientsRefused as e:
-        logger.error(f"Recipients refused: {e}")
-        raise RuntimeError(f"Recipients refused: {e}")
-    except Exception as e:
-        logger.error(f"SMTP send failed: {e}")
-        raise
+    # Try each provider in order, fall back on auth failures
+    last_error = None
+    for provider in providers:
+        try:
+            logger.info(f"Trying {provider['name']} SMTP for delivery...")
+            server = smtplib.SMTP(provider["server"], provider["port"])
+            server.starttls()
+            server.login(provider["user"], provider["pass"])
+            server.send_message(msg)
+            server.quit()
+            logger.info(f"Sent via {provider['name']} to {recipients} with image {image_path}")
+            return {"sent": True, "recipients": recipients, "subject": subject, "provider": provider["name"]}
+        except smtplib.SMTPAuthenticationError as e:
+            logger.warning(f"{provider['name']} auth failed, trying next provider: {e}")
+            last_error = e
+            continue
+        except smtplib.SMTPRecipientsRefused as e:
+            logger.error(f"Recipients refused: {e}")
+            raise RuntimeError(f"Recipients refused: {e}")
+        except Exception as e:
+            logger.warning(f"{provider['name']} send failed, trying next: {e}")
+            last_error = e
+            continue
 
-    logger.info(f"Sent SMS email to {recipients} with image {image_path}")
-    return {"sent": True, "recipients": recipients, "subject": subject}
+    # All providers failed
+    raise RuntimeError(f"All SMTP providers failed. Last error: {last_error}")
