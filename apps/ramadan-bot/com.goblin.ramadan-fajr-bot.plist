@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Label</key>
+        <string>com.goblin.ramadan-fajr-bot</string>
+
+        <key>ProgramArguments</key>
+        <array>
+            <string>/bin/bash</string>
+            <string>/Volumes/GOBLINOS 1/ForgeMonorepo-corrupted/apps/ramadan-bot/run-fajr-bot.sh</string>
+        </array>
+
+        <key>WorkingDirectory</key>
+        <string>/Volumes/GOBLINOS 1/ForgeMonorepo-corrupted/apps/ramadan-bot</string>
+
+        <!-- Run at 04:30, 05:00, and 05:30 every day to cover full Fajr range + DST shifts -->
+        <key>StartCalendarInterval</key>
+        <array>
+            <dict>
+                <key>Hour</key>
+                <integer>4</integer>
+                <key>Minute</key>
+                <integer>30</integer>
+            </dict>
+            <dict>
+                <key>Hour</key>
+                <integer>5</integer>
+                <key>Minute</key>
+                <integer>0</integer>
+            </dict>
+            <dict>
+                <key>Hour</key>
+                <integer>5</integer>
+                <key>Minute</key>
+                <integer>30</integer>
+            </dict>
+        </array>
+
+        <key>StandardOutPath</key>
+        <string>/Volumes/GOBLINOS 1/ForgeMonorepo-corrupted/apps/ramadan-bot/logs/launchd-stdout.log</string>
+
+        <key>StandardErrorPath</key>
+        <string>/Volumes/GOBLINOS 1/ForgeMonorepo-corrupted/apps/ramadan-bot/logs/launchd-stderr.log</string>
+
+        <key>KeepAlive</key>
+        <false />
+    </dict>
+</plist>

@@ -1,0 +1,29 @@
+# Generated images
+cache/*.png
+
+# Runtime logs
+logs/*.log
+
+# Environment secrets
+.env
+
+# Downloaded fonts (fetched via download script)
+fonts/*.ttf
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Streamlit
+.streamlit/
+
+# Temp markers
+/tmp/ramadan_sent_*
+
+# Test coverage + cache
+.pytest_cache/
+.coverage
+htmlcov/

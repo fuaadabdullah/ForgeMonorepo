@@ -1,0 +1,48 @@
+# Ramadan Fajr Bot - CircleCI (backup runner)
+# Scheduled hourly on main; script gates on Fajr time.
+# Env vars: set in CircleCI project settings (not committed).
+version: 2.1
+
+orbs:
+  python: circleci/python@2.1.3
+
+jobs:
+  run-bot:
+    docker:
+      - image: cimg/python:3.10
+    working_directory: ~/project/apps/ramadan-bot
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Install deps
+          command: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+      - run:
+          name: Download fonts
+          command: bash fonts/download_fonts.sh
+      - run:
+          name: Run tests (coverage >= 80%)
+          command: |
+            RAMADAN_TEST_MODE=1 \
+            SMS_RECIPIENTS=test@tmomail.net \
+            FROM_EMAIL=test@example.com \
+            MARKER_DIR=/tmp/ramadan_markers \
+            pytest -q --cov=ramadan_production --cov-report=term-missing --cov-fail-under=80
+      - run:
+          name: CI run (Fajr-gated)
+          command: python ramadan_production.py --ci-run
+
+workflows:
+  version: 2
+  scheduled:
+    triggers:
+      - schedule:
+          cron: "0 * * * *"
+          filters:
+            branches:
+              only:
+                - main
+    jobs:
+      - run-bot
