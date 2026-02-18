@@ -1,12 +1,40 @@
 """Text overlay rendering for images."""
 
 import io
+import os
+import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 import arabic_reshaper
 from bidi.algorithm import get_display
 
 from ..config import FONT_AR, FONT_EN
 from ..logger import logger
+
+# Font URLs for auto-download fallback (OFL / Bitstream Vera licensed)
+_FONT_URLS = {
+    "Amiri-Regular.ttf": "https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf",
+    "DejaVuSans.ttf": "https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf",
+}
+
+
+def _ensure_font(path: str) -> str:
+    """Ensure a font file exists, downloading it if missing."""
+    if os.path.isfile(path):
+        return path
+    basename = os.path.basename(path)
+    url = _FONT_URLS.get(basename)
+    if not url:
+        logger.warning(f"No download URL for font {basename}")
+        return path
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        logger.info(f"Downloading font {basename} from {url}")
+        urllib.request.urlretrieve(url, path)
+        logger.info(f"Downloaded font {basename} ({os.path.getsize(path)} bytes)")
+    except Exception as e:
+        logger.warning(f"Failed to download font {basename}: {e}")
+    return path
+
 
 __all__ = ["overlay_quran_text_bytes"]
 
@@ -64,10 +92,11 @@ def overlay_quran_text_bytes(
         logger.warning("Failed to reshape Arabic text, using original")
         bidi_ar = arabic_text
 
-    # Load fonts (with graceful fallback)
+    # Load fonts (auto-download if missing, then graceful fallback)
     ar_font_size = 48
     try:
-        ar_font = ImageFont.truetype(FONT_AR, ar_font_size)
+        ar_path = _ensure_font(FONT_AR)
+        ar_font = ImageFont.truetype(ar_path, ar_font_size)
     except Exception:
         logger.warning(f"Failed to load Arabic font {FONT_AR}, using default")
         ar_font = ImageFont.load_default()
@@ -75,7 +104,8 @@ def overlay_quran_text_bytes(
 
     en_font_size = 28
     try:
-        en_font = ImageFont.truetype(FONT_EN, en_font_size)
+        en_path = _ensure_font(FONT_EN)
+        en_font = ImageFont.truetype(en_path, en_font_size)
     except Exception:
         logger.warning(f"Failed to load English font {FONT_EN}, using default")
         en_font = ImageFont.load_default()

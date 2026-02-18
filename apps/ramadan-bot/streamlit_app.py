@@ -23,8 +23,8 @@ _ENCODED = (
     'RZNVY_CNFF = "rypclbxfkskhftjm"\n'
     'SEBZ_RZNVY = "shnnqnoqhyynu@tznvy.pbz"\n'
     'FZF_ERPVCVRAGF = "4044946262@gzbznvy.arg,4704692070@gzbznvy.arg,'
-    '4049031003@gzbznvy.arg,4048938670@gzbznvy.arg,'
-    '4047844582@gzbznvy.arg,4706529445@gzbznvy.arg,'
+    "4049031003@gzbznvy.arg,4048938670@gzbznvy.arg,"
+    "4047844582@gzbznvy.arg,4706529445@gzbznvy.arg,"
     '4703586539@gzbznvy.arg"'
 )
 
@@ -41,7 +41,10 @@ for _line in _codecs.decode(_ENCODED, "rot_13").strip().split("\n"):
         _injected += 1
 
 print(f"[bootstrap] Injected {_injected} secrets into env", file=_sys.stderr)
-print(f"[bootstrap] SILICONFLOW_API_KEY present: {bool(_os.environ.get('SILICONFLOW_API_KEY'))}", file=_sys.stderr)
+print(
+    f"[bootstrap] SILICONFLOW_API_KEY present: {bool(_os.environ.get('SILICONFLOW_API_KEY'))}",
+    file=_sys.stderr,
+)
 
 # ──────────────────── Step 1: Regular imports ────────────────────
 from dotenv import load_dotenv

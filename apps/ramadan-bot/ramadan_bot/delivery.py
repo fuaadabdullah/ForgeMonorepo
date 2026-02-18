@@ -78,11 +78,21 @@ def send_via_email_sms(
     )
 
     # Send via SMTP
-    server = smtplib.SMTP(smtp_server, smtp_port)
-    server.starttls()
-    server.login(smtp_user, smtp_pass)
-    server.send_message(msg)
-    server.quit()
+    try:
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
+        server.quit()
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error(f"SMTP auth failed — check credentials: {e}")
+        raise RuntimeError(f"SMTP authentication failed: {e}")
+    except smtplib.SMTPRecipientsRefused as e:
+        logger.error(f"Recipients refused: {e}")
+        raise RuntimeError(f"Recipients refused: {e}")
+    except Exception as e:
+        logger.error(f"SMTP send failed: {e}")
+        raise
 
     logger.info(f"Sent SMS email to {recipients} with image {image_path}")
     return {"sent": True, "recipients": recipients, "subject": subject}
