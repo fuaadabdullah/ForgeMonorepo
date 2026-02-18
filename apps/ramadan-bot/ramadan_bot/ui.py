@@ -18,8 +18,8 @@ from .ui_components import (
 __all__ = ["run_streamlit_ui"]
 
 
-def _stat_card(label: str, value: str, icon: str = "📊"):
-    """Render a styled stat card."""
+def _stat_card(label: str, value: str, icon: str = "📊"):  # pragma: no cover
+    """Render a styled stat card. DEPRECATED: Use render_stat_card from ui_components."""
     try:
         import streamlit as st
     except ImportError:
@@ -92,8 +92,8 @@ def _render_sidebar(config):
         today = get_today_ramadan_day()
         st.markdown(
             f"""
-            **Timezone:** `{config.TZ}`  
-            **Location:** `{config.LAT:.2f}°N, {config.LON:.2f}°E`  
+            **Timezone:** `{config.TZ}`
+            **Location:** `{config.LAT:.2f}°N, {config.LON:.2f}°E`
             **Ramadan Day:** `{today} / 30`
             """
         )

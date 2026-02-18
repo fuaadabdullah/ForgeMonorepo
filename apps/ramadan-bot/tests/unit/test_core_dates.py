@@ -2,6 +2,7 @@
 
 import pytest
 from datetime import date, datetime, timezone, timedelta
+from unittest.mock import patch
 import pytz
 from ramadan_bot.core.dates import get_today_ramadan_day, compute_fajr_for
 from ramadan_bot import config
@@ -11,48 +12,47 @@ from ramadan_bot import config
 class TestGetTodayRamadanDay:
     """Test Ramadan day calculation."""
 
-    def test_first_ramadan_day(self, monkeypatch):
+    def test_first_ramadan_day(self):
         """Test that Ramadan start date returns day 1."""
-        # Mock the current date
         tz = pytz.timezone(config.TZ)
         ramadan_start = config.RAMADAN_START
         mock_now = datetime.combine(ramadan_start, datetime.min.time(), tzinfo=tz)
 
-        with monkeypatch.context() as mp:
-            mp.setattr("ramadan_bot.core.dates.dt.now", lambda tz: mock_now)
+        with patch("ramadan_bot.core.dates.dt") as mock_dt:
+            mock_dt.now.return_value = mock_now
             result = get_today_ramadan_day()
             assert result == 1
 
-    def test_last_ramadan_day(self, monkeypatch):
+    def test_last_ramadan_day(self):
         """Test that last Ramadan date returns day 30."""
         tz = pytz.timezone(config.TZ)
         ramadan_end = config.RAMADAN_END
         mock_now = datetime.combine(ramadan_end, datetime.min.time(), tzinfo=tz)
 
-        with monkeypatch.context() as mp:
-            mp.setattr("ramadan_bot.core.dates.dt.now", lambda tz: mock_now)
+        with patch("ramadan_bot.core.dates.dt") as mock_dt:
+            mock_dt.now.return_value = mock_now
             result = get_today_ramadan_day()
             assert result == 30
 
-    def test_outside_ramadan_before(self, monkeypatch):
+    def test_outside_ramadan_before(self):
         """Test that dates before Ramadan return 0."""
         tz = pytz.timezone(config.TZ)
         before_ramadan = config.RAMADAN_START - timedelta(days=1)
         mock_now = datetime.combine(before_ramadan, datetime.min.time(), tzinfo=tz)
 
-        with monkeypatch.context() as mp:
-            mp.setattr("ramadan_bot.core.dates.dt.now", lambda tz: mock_now)
+        with patch("ramadan_bot.core.dates.dt") as mock_dt:
+            mock_dt.now.return_value = mock_now
             result = get_today_ramadan_day()
             assert result == 0
 
-    def test_outside_ramadan_after(self, monkeypatch):
+    def test_outside_ramadan_after(self):
         """Test that dates after Ramadan return 0."""
         tz = pytz.timezone(config.TZ)
         after_ramadan = config.RAMADAN_END + timedelta(days=1)
         mock_now = datetime.combine(after_ramadan, datetime.min.time(), tzinfo=tz)
 
-        with monkeypatch.context() as mp:
-            mp.setattr("ramadan_bot.core.dates.dt.now", lambda tz: mock_now)
+        with patch("ramadan_bot.core.dates.dt") as mock_dt:
+            mock_dt.now.return_value = mock_now
             result = get_today_ramadan_day()
             assert result == 0
 

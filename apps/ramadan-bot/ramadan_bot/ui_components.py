@@ -104,7 +104,7 @@ def render_preview_buttons(st, selected: int) -> None:
                     image_bytes, image_path = generate_and_cache(selected, force=False)
                     if image_bytes and image_path:
                         st.success(f"✅ Juz {selected} generated!")
-                        st.image(image_bytes, use_column_width=True)
+                        st.image(image_bytes, use_container_width=True)
                     else:
                         st.error(MESSAGES["error"].format("Generation failed"))
             except Exception as e:
@@ -119,7 +119,7 @@ def render_preview_buttons(st, selected: int) -> None:
                     image_bytes, image_path = generate_and_cache(selected, force=True)
                     if image_bytes and image_path:
                         st.success(f"♻️ Juz {selected} regenerated!")
-                        st.image(image_bytes, use_column_width=True)
+                        st.image(image_bytes, use_container_width=True)
                     else:
                         st.error(MESSAGES["error"].format("Regeneration failed"))
             except Exception as e:

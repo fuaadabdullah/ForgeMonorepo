@@ -1,32 +1,11 @@
-import sys
-import importlib
-
 import pytest
+from datetime import date
 
 
 @pytest.fixture()
-def load_module(tmp_path, monkeypatch):
-    def _load(**env_overrides):
-        for key, value in env_overrides.items():
-            monkeypatch.setenv(key, str(value))
-
-        if "ramadan_production" in sys.modules:
-            del sys.modules["ramadan_production"]
-
-        module = importlib.import_module("ramadan_production")
-
-        cache_dir = tmp_path / "cache"
-        marker_dir = tmp_path / "markers"
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        marker_dir.mkdir(parents=True, exist_ok=True)
-
-        monkeypatch.setattr(module, "CACHE_DIR", str(cache_dir))
-        monkeypatch.setattr(module, "MARKER_DIR", str(marker_dir))
-        monkeypatch.setattr(module, "TEST_MODE", False)
-
-        return module
-
-    return _load
+def sample_date():
+    """Return a date within Ramadan 2026 for modular package tests."""
+    return date(2026, 2, 20)  # Day 4 of Ramadan 1447 AH
 
 
 @pytest.fixture()

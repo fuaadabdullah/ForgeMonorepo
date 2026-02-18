@@ -17,7 +17,7 @@ def send_via_email_sms(
     recipients: list = None,
     smtp_server: str = None,
     smtp_port: int = None,
-) -> None:
+) -> dict:
     """Send message via email-to-SMS gateway with image attachment.
 
     Args:
