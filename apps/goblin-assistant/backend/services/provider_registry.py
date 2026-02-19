@@ -9,7 +9,7 @@ import os
 import logging
 from typing import Dict, List, Optional, Any, Type
 
-from ..providers.base import BaseAdapter
+from ..providers.base import ProviderBase
 from .encryption import EncryptionService
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class ProviderRegistry:
 
     def __init__(
         self,
-        adapter_registry: Dict[str, Type[BaseAdapter]],
+        adapter_registry: Dict[str, Type[ProviderBase]],
         encryption_service: EncryptionService,
         provider_config_resolver: Optional[Any] = None,
     ):
@@ -71,9 +71,7 @@ class ProviderRegistry:
         """
         self.adapter_registry = adapter_registry
         self.encryption_service = encryption_service
-        self.provider_config_resolver = (
-            provider_config_resolver or self._default_config_resolver
-        )
+        self.provider_config_resolver = provider_config_resolver or self._default_config_resolver
 
     def _default_config_resolver(self, provider_name: str) -> Optional[Dict[str, Any]]:
         """Default configuration resolver using provider_registry.
@@ -94,7 +92,7 @@ class ProviderRegistry:
             logger.debug(f"Could not resolve config for {provider_name}: {e}")
             return None
 
-    def get_adapter_class(self, provider_name: str) -> Optional[Type[BaseAdapter]]:
+    def get_adapter_class(self, provider_name: str) -> Optional[Type[ProviderBase]]:
         """Get adapter class for a provider.
 
         Args:
@@ -132,9 +130,7 @@ class ProviderRegistry:
             try:
                 return self.encryption_service.decrypt(encrypted_key)
             except Exception as e:
-                logger.warning(
-                    f"Failed to decrypt API key for provider {provider_name}: {e}"
-                )
+                logger.warning(f"Failed to decrypt API key for provider {provider_name}: {e}")
 
         # Fall back to plain API key
         if plain_key:
@@ -183,7 +179,7 @@ class ProviderRegistry:
         encrypted_key: Optional[str] = None,
         plain_key: Optional[str] = None,
         base_url: Optional[str] = None,
-    ) -> Optional[BaseAdapter]:
+    ) -> Optional[ProviderBase]:
         """Initialize a provider adapter.
 
         Args:
@@ -224,7 +220,7 @@ class ProviderRegistry:
             logger.error(f"Failed to initialize adapter for {provider_name}: {e}")
             return None
 
-    async def get_provider_models(self, adapter: BaseAdapter) -> List[str]:
+    async def get_provider_models(self, adapter: ProviderBase) -> List[str]:
         """Get available models from a provider adapter.
 
         Args:
