@@ -4,8 +4,16 @@ FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
-# Copy requirements but exclude TinyLlama deps for faster build
-RUN curl -s https://raw.githubusercontent.com/fuaadabdullah/ForgeMonorepo/main/apps/goblin-assistant/backend/requirements.txt -o /app/requirements.txt
+# Install system deps first (including curl for potential debugging)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file from local directory
+COPY ./backend/requirements.txt /app/requirements.txt
 
 # Create requirements without TinyLlama for faster build
 RUN grep -v "transformers\|torch\|accelerate" requirements.txt > requirements_base.txt
