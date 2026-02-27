@@ -2,6 +2,7 @@ import os
 import time
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Dict, List, Optional
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -61,6 +62,15 @@ def load_provider_config() -> ProviderConfig:
         else ["http://goblin-chat.internal:8080", "https://goblin-chat.fly.dev"]
     )
 
+    azure_openai_endpoint = (
+        os.getenv("AZURE_OPENAI_ENDPOINT") or os.getenv("AZURE_OPENAI_BASE_URL") or ""
+    ).strip().rstrip("/")
+    azure_is_services_ai = ".services.ai.azure.com" in azure_openai_endpoint.lower()
+    azure_default_api_version = (
+        "2024-05-01-preview" if azure_is_services_ai else "2024-08-01-preview"
+    )
+    azure_default_model = "gpt-4.1" if azure_is_services_ai else "gpt-4o-mini"
+
     return ProviderConfig(
         goblin_chat_urls=goblin_chat_urls,
         goblin_chat_key=(
@@ -105,13 +115,7 @@ def load_provider_config() -> ProviderConfig:
         ).strip(),
         openai_key=os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY"),
         anthropic_key=os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY"),
-        azure_openai_endpoint=(
-            os.getenv("AZURE_OPENAI_ENDPOINT")
-            or os.getenv("AZURE_OPENAI_BASE_URL")
-            or ""
-        )
-        .strip()
-        .rstrip("/"),
+        azure_openai_endpoint=azure_openai_endpoint,
         azure_api_key=(
             os.getenv("AZURE_API_KEY")
             or os.getenv("AZURE_OPENAI_API_KEY")
@@ -119,8 +123,10 @@ def load_provider_config() -> ProviderConfig:
             or None
         ),
         azure_deployment_id=(os.getenv("AZURE_DEPLOYMENT_ID") or "").strip(),
-        azure_api_version=(os.getenv("AZURE_API_VERSION") or "2024-08-01-preview").strip(),
-        azure_default_model=(os.getenv("AZURE_DEFAULT_MODEL") or "gpt-4o-mini").strip(),
+        azure_api_version=(
+            os.getenv("AZURE_API_VERSION") or azure_default_api_version
+        ).strip(),
+        azure_default_model=(os.getenv("AZURE_DEFAULT_MODEL") or azure_default_model).strip(),
         aliyun_url=(os.getenv("ALIYUN_MODEL_SERVER_URL") or "").strip().rstrip("/"),
         aliyun_key=(
             os.getenv("ALIYUN_MODEL_SERVER_KEY") or os.getenv("ALIYUN_API_KEY") or ""
@@ -404,8 +410,10 @@ def build_provider_attempts(
         # (openai.azure.com) use different URL shapes.
         is_inference_endpoint = ".services.ai.azure.com" in endpoint.lower()
         if is_inference_endpoint:
+            split = urlsplit(endpoint)
+            root_endpoint = f"{split.scheme}://{split.netloc}".rstrip("/")
             url = (
-                f"{endpoint}/models/chat/completions"
+                f"{root_endpoint}/models/chat/completions"
                 f"?api-version={config.azure_api_version}"
             )
             payload = {

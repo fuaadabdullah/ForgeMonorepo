@@ -16,6 +16,8 @@ from providers import (
     AnthropicAdapter,
     GrokAdapter,
     DeepSeekAdapter,
+    OllamaAdapter,
+    LlamaCppAdapter,
 )
 
 from scheduler import with_redis_lock
@@ -124,6 +126,10 @@ async def _probe_provider(provider: RoutingProvider) -> Dict[str, Any]:
             "alibaba_cloud": OpenAIAdapter,
             "azure": OpenAIAdapter,
             "azure_openai": OpenAIAdapter,
+            "ollama": OllamaAdapter,
+            "ollama_gcp": OllamaAdapter,
+            "llamacpp": LlamaCppAdapter,
+            "llamacpp_gcp": LlamaCppAdapter,
             "anthropic": AnthropicAdapter,
             "grok": GrokAdapter,
             "deepseek": DeepSeekAdapter,

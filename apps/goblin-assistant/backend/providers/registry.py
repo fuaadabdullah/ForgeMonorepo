@@ -303,10 +303,26 @@ class ProviderRegistry:
 
     def _resolve_endpoint(self, provider_id: str, cfg: Dict[str, Any]) -> str:
         endpoint = _clean_env(str(cfg.get("endpoint", "") or ""))
+
+        # Preferred config-driven endpoint env resolution from providers.toml.
+        endpoint_env = str(cfg.get("endpoint_env", "") or "").strip()
+        if endpoint_env:
+            endpoint_from_env = _clean_env(os.getenv(endpoint_env))
+            if endpoint_from_env:
+                endpoint = endpoint_from_env
+
+        # Backward-compatible fallback env key support.
+        if not endpoint:
+            endpoint_fallback_env = str(cfg.get("endpoint_fallback", "") or "").strip()
+            if endpoint_fallback_env:
+                endpoint = _clean_env(os.getenv(endpoint_fallback_env))
+
         endpoint_overrides = {
             "ollama": "OLLAMA_BASE_URL",
+            "ollama-gcp": "OLLAMA_GCP_URL",
             "ollama_gcp": "OLLAMA_GCP_URL",
             "ollama_kamatera": "KAMATERA_SERVER1_URL",
+            "llamacpp-gcp": "LLAMACPP_GCP_URL",
             "llamacpp_gcp": "LLAMACPP_GCP_URL",
             "llamacpp_kamatera": "KAMATERA_SERVER1_URL",
             "azure-openai": "AZURE_OPENAI_ENDPOINT",

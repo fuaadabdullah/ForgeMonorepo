@@ -263,10 +263,10 @@ def _build_provider_strategy(
 ) -> tuple[List[str], Dict[str, tuple[float, float]]]:
     if simple_prompt:
         provider_timeout_profiles = {
-            "ollama_gcp": (1.6, 0.6),
-            "llamacpp_gcp": (1.6, 0.6),
             "aliyun": (1.6, 0.6),
             "azure_openai": (1.2, 0.6),
+            "ollama_gcp": (1.6, 0.6),
+            "llamacpp_gcp": (1.6, 0.6),
             "gemini": (1.1, 0.6),
             "deepseek": (1.1, 0.6),
             "openrouter": (3.0, 1.0),
@@ -276,10 +276,10 @@ def _build_provider_strategy(
             "siliconeflow": (3.0, 1.0),
         }
         provider_order = [
-            "ollama_gcp",
-            "llamacpp_gcp",
             "aliyun",
             "azure_openai",
+            "ollama_gcp",
+            "llamacpp_gcp",
             "gemini",
             "deepseek",
             "openrouter",
@@ -290,7 +290,10 @@ def _build_provider_strategy(
         ]
     else:
         provider_timeout_profiles = {
+            "aliyun": (6.0, 1.0),
             "azure_openai": (6.0, 1.0),
+            "ollama_gcp": (8.0, 1.0),
+            "llamacpp_gcp": (8.0, 1.0),
             "openai": (6.0, 1.0),
             "anthropic": (6.0, 1.0),
             "gemini": (6.0, 1.0),
@@ -298,12 +301,12 @@ def _build_provider_strategy(
             "openrouter": (6.0, 1.0),
             "groq": (6.0, 1.0),
             "siliconeflow": (6.0, 1.0),
-            "aliyun": (8.0, 1.0),
-            "ollama_gcp": (8.0, 1.0),
-            "llamacpp_gcp": (8.0, 1.0),
         }
         provider_order = [
+            "aliyun",
             "azure_openai",
+            "ollama_gcp",
+            "llamacpp_gcp",
             "openai",
             "anthropic",
             "gemini",
@@ -311,9 +314,6 @@ def _build_provider_strategy(
             "openrouter",
             "groq",
             "siliconeflow",
-            "aliyun",
-            "ollama_gcp",
-            "llamacpp_gcp",
         ]
 
     if forced_provider:
@@ -565,6 +565,23 @@ async def generate_completion(
         except Exception:
             logger.warning("provider_catalog_unavailable_for_canonicalization")
     known_provider_ids = build_known_provider_ids(known_provider_id_source)
+    # The generate pipeline supports a broader set of runtime providers than
+    # the current registry catalog may expose (e.g., env-only providers).
+    known_provider_ids.update(
+        {
+            "aliyun",
+            "azure_openai",
+            "ollama_gcp",
+            "llamacpp_gcp",
+            "gemini",
+            "deepseek",
+            "openrouter",
+            "openai",
+            "anthropic",
+            "groq",
+            "siliconeflow",
+        }
+    )
 
     normalized_forced_provider = _normalize_provider_id(
         forced_provider,
@@ -610,11 +627,20 @@ async def generate_completion(
 
     if provider_hint:
         if provider_meta and not bool(provider_meta.get("is_selectable", True)):
-            _raise_unavailable_provider_selection(
-                provider=provider_hint,
-                health=str(provider_meta.get("health") or "unknown"),
-                health_reason=provider_meta.get("health_reason"),
-                correlation_id=correlation_id,
+            if not explicit_provider_selection:
+                _raise_unavailable_provider_selection(
+                    provider=provider_hint,
+                    health=str(provider_meta.get("health") or "unknown"),
+                    health_reason=provider_meta.get("health_reason"),
+                    correlation_id=correlation_id,
+                )
+            logger.info(
+                "provider_hint_forced_despite_unselectable_catalog_health",
+                extra={
+                    "correlation_id": correlation_id,
+                    "provider": provider_hint,
+                    "catalog_health": str(provider_meta.get("health") or "unknown"),
+                },
             )
 
     if explicit_provider_selection:

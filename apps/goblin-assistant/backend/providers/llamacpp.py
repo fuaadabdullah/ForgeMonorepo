@@ -85,10 +85,12 @@ class LlamaCppProvider(ProviderBase):
         try:
             headers = {"x-api-key": self.api_key} if self.api_key else None
             with httpx.Client(timeout=5.0) as client:
-                response = client.get(f"{self.base_url}/health", headers=headers)
-            if response.status_code == 200:
-                return HealthStatus.HEALTHY
-            else:
+                # Some llama.cpp/OpenAI-compatible deployments expose /v1/models
+                # instead of /health. Try both before declaring unhealthy.
+                for path in ("/health", "/v1/models", "/models"):
+                    response = client.get(f"{self.base_url}{path}", headers=headers)
+                    if response.status_code == 200:
+                        return HealthStatus.HEALTHY
                 return HealthStatus.DEGRADED
         except Exception as e:
             logger.warning(f"Llama.cpp health check failed: {e}")

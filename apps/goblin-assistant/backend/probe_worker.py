@@ -34,6 +34,8 @@ try:
         AnthropicAdapter,
         GrokAdapter,
         DeepSeekAdapter,
+        OllamaAdapter,
+        LlamaCppAdapter,
     )
 except ImportError as e:
     print(f"Failed to import backend modules: {e}")
@@ -184,6 +186,10 @@ async def _probe_single_provider(provider: RoutingProvider) -> bool:
             "alibaba_cloud": OpenAIAdapter,
             "azure": OpenAIAdapter,
             "azure_openai": OpenAIAdapter,
+            "ollama": OllamaAdapter,
+            "ollama_gcp": OllamaAdapter,
+            "llamacpp": LlamaCppAdapter,
+            "llamacpp_gcp": LlamaCppAdapter,
             "anthropic": AnthropicAdapter,
             "grok": GrokAdapter,
             "deepseek": DeepSeekAdapter,

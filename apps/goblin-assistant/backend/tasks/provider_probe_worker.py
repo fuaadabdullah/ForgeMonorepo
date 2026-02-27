@@ -9,7 +9,14 @@ from sqlalchemy.orm import Session
 
 from ..models.routing import RoutingProvider, ProviderMetric
 
-from ..providers import OpenAIAdapter, AnthropicAdapter, GrokAdapter, DeepSeekAdapter
+from ..providers import (
+    OpenAIAdapter,
+    AnthropicAdapter,
+    GrokAdapter,
+    DeepSeekAdapter,
+    OllamaAdapter,
+    LlamaCppAdapter,
+)
 from ..services.encryption import EncryptionService
 from ..database import SessionLocal
 
@@ -35,6 +42,10 @@ class ProviderProbeWorker:
             "alibaba_cloud": OpenAIAdapter,
             "azure": OpenAIAdapter,
             "azure_openai": OpenAIAdapter,
+            "ollama": OllamaAdapter,
+            "ollama_gcp": OllamaAdapter,
+            "llamacpp": LlamaCppAdapter,
+            "llamacpp_gcp": LlamaCppAdapter,
             "anthropic": AnthropicAdapter,
             "grok": GrokAdapter,
             "deepseek": DeepSeekAdapter,
