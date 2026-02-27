@@ -1,18 +1,13 @@
-from typing import List, Optional
+"""Compatibility exports for generate request schemas.
 
-from pydantic import BaseModel, Field
+Supports both runtime layouts used in this repo:
+- backend root on PYTHONPATH (import from `schemas`)
+- repo root on PYTHONPATH (import from `backend.schemas`)
+"""
 
+try:  # backend root import layout
+    from schemas.v1.generate import GenerateMessage, GenerateRequest
+except ImportError:  # repo root import layout
+    from backend.schemas.v1.generate import GenerateMessage, GenerateRequest
 
-class GenerateMessage(BaseModel):
-    role: str = Field(..., description="Message role: system, user, or assistant")
-    content: str = Field(..., description="Message content")
-
-
-class GenerateRequest(BaseModel):
-    messages: List[GenerateMessage] = Field(..., description="Structured chat messages")
-    model: str = Field("llama2", description="Model hint for upstream providers")
-    provider: Optional[str] = Field(
-        None, description="Optional provider hint (e.g. ollama_gcp, llamacpp_gcp)"
-    )
-    max_tokens: Optional[int] = Field(None, ge=1, le=2048)
-    temperature: Optional[float] = Field(None, ge=0.0, le=2.0)
+__all__ = ["GenerateMessage", "GenerateRequest"]

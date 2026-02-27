@@ -24,7 +24,13 @@ def _provider_env_key_candidates(provider_name: str) -> List[str]:
     Returns:
         List of environment variable names to check
     """
-    base = (provider_name or "").upper().replace("-", "_")
+    canonical = (provider_name or "").lower().replace("-", "_")
+    if canonical in {"azure_openai", "azure"}:
+        return ["AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_KEY"]
+    if canonical in {"aliyun", "alibaba", "alibaba_cloud"}:
+        return ["ALIYUN_MODEL_SERVER_KEY", "ALIYUN_API_KEY", "ALIYUN_KEY"]
+
+    base = canonical.upper()
     return [f"{base}_API_KEY", f"{base}_KEY"]
 
 

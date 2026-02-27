@@ -5,7 +5,10 @@ from typing import Awaitable, Callable, Dict, List, Optional
 
 import httpx
 
-from ..providers.ollama_adapter import OllamaAdapter
+try:  # backend package import layout
+    from ..providers.ollama_adapter import OllamaAdapter
+except ImportError:  # backend root on PYTHONPATH
+    from providers.ollama_adapter import OllamaAdapter
 
 
 @dataclass(frozen=True)
@@ -38,6 +41,14 @@ class ProviderConfig:
     openrouter_default_model: str
     openai_key: Optional[str]
     anthropic_key: Optional[str]
+    azure_openai_endpoint: str
+    azure_api_key: Optional[str]
+    azure_deployment_id: str
+    azure_api_version: str
+    azure_default_model: str
+    aliyun_url: str
+    aliyun_key: str
+    aliyun_default_model: str
     ollama_default_model: str
     llamacpp_default_model: str
 
@@ -56,13 +67,23 @@ def load_provider_config() -> ProviderConfig:
             os.getenv("GOBLIN_CHAT_API_KEY") or os.getenv("GOBLIN_API_KEY") or ""
         ),
         ollama_url=(
-            os.getenv("OLLAMA_GCP_URL") or os.getenv("OLLAMA_BASE_URL") or ""
+            os.getenv("OLLAMA_GCP_URL")
+            or os.getenv("OLLAMA_GCP_BASE_URL")
+            or os.getenv("GCP_OLLAMA_URL")
+            or ""
         ).strip(),
-        llamacpp_url=(os.getenv("LLAMACPP_GCP_URL") or "").strip(),
-        gemini_key=os.getenv("GEMINI_API_KEY"),
+        llamacpp_url=(
+            os.getenv("LLAMACPP_GCP_URL")
+            or os.getenv("LLAMACPP_GCP_BASE_URL")
+            or os.getenv("GCP_LLAMACPP_URL")
+            or ""
+        ).strip(),
+        gemini_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
         groq_key=os.getenv("GROK_API_KEY") or os.getenv("GROQ_API_KEY"),
-        deepseek_key=os.getenv("DEEPSEEK_API_KEY"),
-        siliconeflow_key=(os.getenv("SILICONEFLOW_API_KEY") or "").strip(),
+        deepseek_key=os.getenv("DEEPSEEK_API_KEY") or os.getenv("DEEPSEEK_KEY"),
+        siliconeflow_key=(
+            os.getenv("SILICONEFLOW_API_KEY") or os.getenv("SILLICONFLOW_API_KEY") or ""
+        ).strip(),
         siliconeflow_url=(
             (os.getenv("SILICONEFLOW_BASE_URL") or "https://api.siliconflow.com/v1")
             .strip()
@@ -71,7 +92,9 @@ def load_provider_config() -> ProviderConfig:
         siliconeflow_default_model=(
             os.getenv("SILICONEFLOW_DEFAULT_MODEL") or "Qwen/Qwen2.5-7B-Instruct"
         ).strip(),
-        openrouter_key=(os.getenv("OPENROUTER_API_KEY") or "").strip(),
+        openrouter_key=(
+            os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_KEY") or ""
+        ).strip(),
         openrouter_url=(
             (os.getenv("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1")
             .strip()
@@ -80,8 +103,29 @@ def load_provider_config() -> ProviderConfig:
         openrouter_default_model=(
             os.getenv("OPENROUTER_DEFAULT_MODEL") or "openrouter/auto"
         ).strip(),
-        openai_key=os.getenv("OPENAI_API_KEY"),
-        anthropic_key=os.getenv("ANTHROPIC_API_KEY"),
+        openai_key=os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_KEY"),
+        anthropic_key=os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY"),
+        azure_openai_endpoint=(
+            os.getenv("AZURE_OPENAI_ENDPOINT")
+            or os.getenv("AZURE_OPENAI_BASE_URL")
+            or ""
+        )
+        .strip()
+        .rstrip("/"),
+        azure_api_key=(
+            os.getenv("AZURE_API_KEY")
+            or os.getenv("AZURE_OPENAI_API_KEY")
+            or os.getenv("AZURE_OPENAI_KEY")
+            or None
+        ),
+        azure_deployment_id=(os.getenv("AZURE_DEPLOYMENT_ID") or "").strip(),
+        azure_api_version=(os.getenv("AZURE_API_VERSION") or "2024-08-01-preview").strip(),
+        azure_default_model=(os.getenv("AZURE_DEFAULT_MODEL") or "gpt-4o-mini").strip(),
+        aliyun_url=(os.getenv("ALIYUN_MODEL_SERVER_URL") or "").strip().rstrip("/"),
+        aliyun_key=(
+            os.getenv("ALIYUN_MODEL_SERVER_KEY") or os.getenv("ALIYUN_API_KEY") or ""
+        ).strip(),
+        aliyun_default_model=(os.getenv("ALIYUN_DEFAULT_MODEL") or "qwen2.5:3b").strip(),
         ollama_default_model=(
             os.getenv("OLLAMA_GCP_DEFAULT_MODEL") or "gemma:2b"
         ).strip(),
@@ -138,10 +182,13 @@ def build_provider_attempts(
         ollama_model = context.model
         if not context.forced_model and context.model == "llama2":
             ollama_model = config.ollama_default_model
-        max_adapter_timeout = 15 if context.forced_provider else 8
-        adapter.timeout = int(
-            max(1, min(max_adapter_timeout, context.request_deadline - time.time()))
-        )
+        timeout_profile = provider_timeout("ollama_gcp")
+        timeout_budget = timeout_profile.read
+        if timeout_budget is None:
+            timeout_budget = timeout_profile.connect
+        if timeout_budget is None:
+            timeout_budget = context.request_deadline - time.time()
+        adapter.timeout = max(1, int(float(timeout_budget)))
         result = await adapter.generate(
             context.messages,
             model=ollama_model,
@@ -303,6 +350,8 @@ def build_provider_attempts(
             provider_response.raise_for_status()
             data = provider_response.json()
             content = data["choices"][0]["message"]["content"]
+            if not str(content or "").strip():
+                raise RuntimeError("openrouter returned empty content")
             return {
                 "content": content,
                 "response": content,
@@ -313,6 +362,9 @@ def build_provider_attempts(
             }
 
     async def _call_openai() -> Dict[str, object]:
+        openai_model = context.model
+        if not context.forced_model and context.model == "llama2":
+            openai_model = "gpt-4o-mini"
         async with httpx.AsyncClient(timeout=provider_timeout("openai")) as client:
             provider_response = await client.post(
                 "https://api.openai.com/v1/chat/completions",
@@ -321,9 +373,10 @@ def build_provider_attempts(
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "gpt-4o-mini",
+                    "model": openai_model,
                     "messages": context.messages,
                     "max_tokens": context.req_max_tokens,
+                    "temperature": context.req_temperature,
                 },
             )
             provider_response.raise_for_status()
@@ -333,9 +386,171 @@ def build_provider_attempts(
                 "content": content,
                 "response": content,
                 "usage": data.get("usage", {}),
-                "model": data.get("model", "gpt-4o-mini"),
+                "model": data.get("model", openai_model),
                 "provider": "openai",
                 "finish_reason": data["choices"][0].get("finish_reason", "stop"),
+            }
+
+    async def _call_azure_openai() -> Dict[str, object]:
+        endpoint = config.azure_openai_endpoint.rstrip("/")
+        if not endpoint:
+            raise RuntimeError("Azure endpoint not configured")
+
+        azure_model = context.model
+        if not context.forced_model and context.model == "llama2":
+            azure_model = config.azure_default_model
+
+        # Azure AI Inference (services.ai.azure.com) and Azure OpenAI
+        # (openai.azure.com) use different URL shapes.
+        is_inference_endpoint = ".services.ai.azure.com" in endpoint.lower()
+        if is_inference_endpoint:
+            url = (
+                f"{endpoint}/models/chat/completions"
+                f"?api-version={config.azure_api_version}"
+            )
+            payload = {
+                "model": azure_model,
+                "messages": context.messages,
+                "max_tokens": context.req_max_tokens,
+                "temperature": context.req_temperature,
+            }
+        else:
+            if not config.azure_deployment_id:
+                raise RuntimeError("Azure OpenAI deployment not configured")
+            url = (
+                f"{endpoint}/openai/deployments/{config.azure_deployment_id}"
+                f"/chat/completions?api-version={config.azure_api_version}"
+            )
+            payload = {
+                "messages": context.messages,
+                "max_tokens": context.req_max_tokens,
+                "temperature": context.req_temperature,
+            }
+
+        async with httpx.AsyncClient(timeout=provider_timeout("azure_openai")) as client:
+            provider_response = await client.post(
+                url,
+                headers={
+                    "api-key": str(config.azure_api_key or ""),
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            provider_response.raise_for_status()
+            data = provider_response.json()
+            choice = (data.get("choices") or [{}])[0]
+            content = ((choice.get("message") or {}).get("content")) or ""
+            if not content:
+                raise RuntimeError("azure_openai returned empty content")
+            return {
+                "content": content,
+                "response": content,
+                "usage": data.get("usage", {}),
+                "model": data.get("model", azure_model),
+                "provider": "azure_openai",
+                "finish_reason": choice.get("finish_reason", "stop"),
+            }
+
+    async def _call_aliyun() -> Dict[str, object]:
+        if not config.aliyun_url:
+            raise RuntimeError("Aliyun model server URL not configured")
+
+        aliyun_model = context.model
+        if not context.forced_model and context.model == "llama2":
+            aliyun_model = config.aliyun_default_model
+
+        headers: Dict[str, str] = {"Content-Type": "application/json"}
+        if config.aliyun_key:
+            headers["Authorization"] = f"Bearer {config.aliyun_key}"
+            headers["x-api-key"] = config.aliyun_key
+
+        async with httpx.AsyncClient(timeout=provider_timeout("aliyun")) as client:
+            openai_payload = {
+                "model": aliyun_model,
+                "messages": context.messages,
+                "max_tokens": context.req_max_tokens,
+                "temperature": context.req_temperature,
+            }
+            for path in ("/v1/chat/completions", "/chat/completions"):
+                provider_response = await client.post(
+                    f"{config.aliyun_url}{path}",
+                    headers=headers,
+                    json=openai_payload,
+                )
+                if provider_response.status_code in {404, 405}:
+                    continue
+                provider_response.raise_for_status()
+                data = provider_response.json()
+                choice = (data.get("choices") or [{}])[0]
+                content = ((choice.get("message") or {}).get("content")) or ""
+                if content:
+                    return {
+                        "content": content,
+                        "response": content,
+                        "usage": data.get("usage", {}),
+                        "model": data.get("model", aliyun_model),
+                        "provider": "aliyun",
+                        "finish_reason": choice.get("finish_reason", "stop"),
+                    }
+
+            chat_response = await client.post(
+                f"{config.aliyun_url}/api/chat",
+                headers=headers,
+                json={
+                    "model": aliyun_model,
+                    "messages": context.messages,
+                    "stream": False,
+                    "options": {
+                        "temperature": context.req_temperature,
+                        "num_predict": context.req_max_tokens,
+                    },
+                },
+            )
+            if chat_response.status_code not in {404, 405}:
+                chat_response.raise_for_status()
+                data = chat_response.json()
+                content = ((data.get("message") or {}).get("content")) or data.get("response") or ""
+                if content:
+                    return {
+                        "content": content,
+                        "response": content,
+                        "usage": {
+                            "prompt_tokens": data.get("prompt_eval_count", 0),
+                            "completion_tokens": data.get("eval_count", 0),
+                            "total_tokens": data.get("prompt_eval_count", 0)
+                            + data.get("eval_count", 0),
+                        },
+                        "model": data.get("model", aliyun_model),
+                        "provider": "aliyun",
+                        "finish_reason": "stop",
+                    }
+
+            generate_response = await client.post(
+                f"{config.aliyun_url}/api/generate",
+                headers=headers,
+                json={
+                    "model": aliyun_model,
+                    "prompt": context.prompt,
+                    "stream": False,
+                },
+            )
+            generate_response.raise_for_status()
+            data = generate_response.json()
+            content = data.get("response") or data.get("content") or ""
+            if not content:
+                raise RuntimeError("aliyun returned empty content")
+            return {
+                "content": content,
+                "response": content,
+                "usage": {
+                    "prompt_tokens": data.get("prompt_eval_count", 0),
+                    "completion_tokens": data.get("eval_count", 0),
+                    "total_tokens": data.get("prompt_eval_count", 0)
+                    + data.get("eval_count", 0),
+                },
+                "model": data.get("model", aliyun_model),
+                "provider": "aliyun",
+                "finish_reason": "stop",
             }
 
     async def _call_anthropic() -> Dict[str, object]:
@@ -431,6 +646,8 @@ def build_provider_attempts(
         "siliconeflow": _call_siliconeflow,
         "ollama_gcp": _call_ollama_gcp,
         "llamacpp_gcp": _call_llamacpp_gcp,
+        "aliyun": _call_aliyun,
+        "azure_openai": _call_azure_openai,
         "gemini": _call_gemini,
         "deepseek": _call_deepseek,
         "openrouter": _call_openrouter,

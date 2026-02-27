@@ -87,10 +87,14 @@ class RoutingConfig:
         # Build adapter registry
         adapter_registry = {
             "openai": OpenAIAdapter,
+            "openai-fallback": OpenAIAdapter,
             "anthropic": AnthropicAdapter,
             "grok": GrokAdapter,
             "deepseek": DeepSeekAdapter,
             "openrouter": OpenAIAdapter,  # OpenRouter uses OpenAI format
+            "azure-openai": OpenAIAdapter,
+            "azure_openai": OpenAIAdapter,
+            "aliyun": OpenAIAdapter,
             "ollama_gcp": OllamaAdapter,
             "llamacpp_gcp": LlamaCppAdapter,
             "tinylama": TinyLlamaAdapter,
