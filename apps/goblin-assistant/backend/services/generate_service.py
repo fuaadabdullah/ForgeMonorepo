@@ -650,13 +650,23 @@ async def generate_completion(
             forced_provider,
         )
         if explicit_block_reason is not None:
-            health, reason = _health_for_block_reason(explicit_block_reason)
-            _raise_unavailable_provider_selection(
-                provider=provider_hint,
-                health=health,
-                health_reason=reason,
-                correlation_id=correlation_id,
-            )
+            if explicit_block_reason == "recently_unhealthy":
+                logger.info(
+                    "provider_block_ignored_for_explicit_selection",
+                    extra={
+                        "correlation_id": correlation_id,
+                        "provider": provider_hint,
+                        "block_reason": explicit_block_reason,
+                    },
+                )
+            else:
+                health, reason = _health_for_block_reason(explicit_block_reason)
+                _raise_unavailable_provider_selection(
+                    provider=provider_hint,
+                    health=health,
+                    health_reason=reason,
+                    correlation_id=correlation_id,
+                )
 
     simple_prompt = _is_simple_prompt(messages)
     hard_timeout_s = 20.0 if forced_provider else (8.0 if simple_prompt else 20.0)
@@ -752,15 +762,29 @@ async def generate_completion(
             continue
         block_reason = _provider_block_reason(provider_name, provider_hint, forced_provider)
         if block_reason is not None:
-            logger.info(
-                "provider_candidate_skipped",
-                extra={
-                    "correlation_id": correlation_id,
-                    "provider": provider_name,
-                    "reason": block_reason,
-                },
-            )
-            continue
+            if (
+                explicit_provider_selection
+                and provider_name == provider_hint
+                and block_reason == "recently_unhealthy"
+            ):
+                logger.info(
+                    "provider_block_ignored_for_explicit_selection",
+                    extra={
+                        "correlation_id": correlation_id,
+                        "provider": provider_name,
+                        "block_reason": block_reason,
+                    },
+                )
+            else:
+                logger.info(
+                    "provider_candidate_skipped",
+                    extra={
+                        "correlation_id": correlation_id,
+                        "provider": provider_name,
+                        "reason": block_reason,
+                    },
+                )
+                continue
 
         max_attempts = _max_attempts_for_provider(
             provider_name, simple_prompt, forced_provider
