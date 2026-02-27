@@ -344,21 +344,11 @@ def _provider_timeout(
 
 
 def _provider_is_configured(name: str, config) -> bool:
-    local_ml_disabled = str(os.getenv("DISABLE_LOCAL_ML", "")).strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
     if name == "siliconeflow":
         return bool(config.siliconeflow_key)
     if name == "ollama_gcp":
-        if local_ml_disabled:
-            return False
         return bool(config.ollama_url)
     if name == "llamacpp_gcp":
-        if local_ml_disabled:
-            return False
         return bool(config.llamacpp_url)
     if name == "gemini":
         return bool(config.gemini_key)
