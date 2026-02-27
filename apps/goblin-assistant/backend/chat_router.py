@@ -79,10 +79,10 @@ async def create_chat_completion(
 async def legacy_stream_get(
     req: Request,
     task_id: Annotated[str, Query(...)],
-    goblin: Annotated[str, Query()] = "default",
-    task: Annotated[str, Query()] = "default task",
     chat_service: Annotated[ChatService, Depends(get_chat_service)],
     _scopes: Annotated[List[str], Depends(require_scope(AuthScope.WRITE_CONVERSATIONS))],
+    goblin: Annotated[str, Query()] = "default",
+    task: Annotated[str, Query()] = "default task",
 ):
     """Deprecated shim for legacy GET /v1/stream behavior."""
 
