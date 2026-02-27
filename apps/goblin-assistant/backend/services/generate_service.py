@@ -603,6 +603,9 @@ async def generate_completion(
     explicit_provider_selection = bool(
         provider_hint and (forced_provider is not None or request.provider is not None)
     )
+    effective_forced_provider = (
+        forced_provider or provider_hint if explicit_provider_selection else forced_provider
+    )
 
     explicit_model_for_validation = (forced_model or "").strip()
     if (
@@ -669,7 +672,7 @@ async def generate_completion(
                 )
 
     simple_prompt = _is_simple_prompt(messages)
-    hard_timeout_s = 20.0 if forced_provider else (8.0 if simple_prompt else 20.0)
+    hard_timeout_s = 20.0 if effective_forced_provider else (8.0 if simple_prompt else 20.0)
     request_deadline = time.time() + hard_timeout_s
     errors: List[str] = []
 
@@ -683,12 +686,12 @@ async def generate_completion(
         req_temperature=req_temperature,
         simple_prompt=simple_prompt,
         request_deadline=request_deadline,
-        forced_provider=forced_provider,
+        forced_provider=effective_forced_provider,
         forced_model=forced_model,
     )
 
     provider_order, provider_timeout_profiles = _build_provider_strategy(
-        simple_prompt, forced_provider
+        simple_prompt, effective_forced_provider
     )
 
     provider_config = load_provider_config()
@@ -709,7 +712,7 @@ async def generate_completion(
         extra={
             "correlation_id": correlation_id,
             "provider_hint": provider_hint or "",
-            "forced_provider": forced_provider or "",
+            "forced_provider": effective_forced_provider or "",
             "model": model,
             "max_tokens_effective": req_max_tokens,
             "temperature_effective": req_temperature,
@@ -721,7 +724,10 @@ async def generate_completion(
         provider_context,
         provider_config,
         lambda name: _provider_timeout(
-            name, context.request_deadline, provider_timeout_profiles, forced_provider
+            name,
+            context.request_deadline,
+            provider_timeout_profiles,
+            effective_forced_provider,
         ),
     )
 
@@ -760,7 +766,9 @@ async def generate_completion(
                 },
             )
             continue
-        block_reason = _provider_block_reason(provider_name, provider_hint, forced_provider)
+        block_reason = _provider_block_reason(
+            provider_name, provider_hint, effective_forced_provider
+        )
         if block_reason is not None:
             if (
                 explicit_provider_selection
@@ -787,7 +795,7 @@ async def generate_completion(
                 continue
 
         max_attempts = _max_attempts_for_provider(
-            provider_name, simple_prompt, forced_provider
+            provider_name, simple_prompt, effective_forced_provider
         )
         logger.info(
             "provider_candidate_attempting",
