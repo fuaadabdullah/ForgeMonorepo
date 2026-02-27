@@ -44,10 +44,15 @@ def init_sentry():
         print("ℹ️  Sentry not initialized (sentry_sdk not installed)")
         return
 
-    sentry_dsn = os.getenv("SENTRY_DSN")
+    sentry_dsn = (os.getenv("SENTRY_DSN") or "").strip()
     environment = os.getenv("ENVIRONMENT", "development")
+    has_valid_dsn_scheme = sentry_dsn.startswith("http://") or sentry_dsn.startswith("https://")
 
-    if sentry_dsn and environment in ["staging", "production"]:
+    if sentry_dsn and not has_valid_dsn_scheme:
+        print("⚠️  Sentry DSN is set but invalid; skipping Sentry initialization")
+        return
+
+    if sentry_dsn and has_valid_dsn_scheme and environment in ["staging", "production"]:
         sentry_sdk.init(
             dsn=sentry_dsn,
             environment=environment,
