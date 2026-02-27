@@ -116,12 +116,18 @@ async def _probe_provider(provider: RoutingProvider) -> Dict[str, Any]:
         if not isinstance(provider_name, str) or not provider_name:
             return {"status": "error", "error": "Provider not found"}
 
+        normalized_name = provider_name.lower().replace("-", "_")
         adapter_class = {
             "openai": OpenAIAdapter,
+            "aliyun": OpenAIAdapter,
+            "alibaba": OpenAIAdapter,
+            "alibaba_cloud": OpenAIAdapter,
+            "azure": OpenAIAdapter,
+            "azure_openai": OpenAIAdapter,
             "anthropic": AnthropicAdapter,
             "grok": GrokAdapter,
             "deepseek": DeepSeekAdapter,
-        }.get(provider_name.lower())
+        }.get(normalized_name)
 
         if not adapter_class:
             logger.warning(f"No adapter found for provider {provider_name}")

@@ -18,6 +18,13 @@ load_dotenv()
 
 def _env_has_provider_key(provider_name: str) -> bool:
     base = (provider_name or "").upper().replace("-", "_")
+    if base in {"ALIYUN", "ALIBABA", "ALIBABA_CLOUD"}:
+        if (os.getenv("ALIYUN_MODEL_SERVER_KEY") or "").strip():
+            return True
+    if base in {"AZURE_OPENAI", "AZURE"}:
+        for env_key in ("AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_KEY"):
+            if (os.getenv(env_key) or "").strip():
+                return True
     for env_key in (f"{base}_API_KEY", f"{base}_KEY"):
         if (os.getenv(env_key) or "").strip():
             return True

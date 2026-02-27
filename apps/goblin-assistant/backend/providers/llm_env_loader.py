@@ -85,6 +85,14 @@ class LLMEnvLoader:
             "priority": 2,
             "capabilities": ["chat", "completions", "code-generation"],
         },
+        "aliyun": {
+            "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+            "endpoint_env": "ALIYUN_MODEL_SERVER_URL",
+            "env_vars": ["ALIYUN_MODEL_SERVER_KEY", "ALIYUN_API_KEY", "ALIYUN_KEY"],
+            "default_model": "qwen-plus",
+            "priority": 1,
+            "capabilities": ["chat", "completions", "code-generation"],
+        },
         "openai": {
             "endpoint": "https://api.openai.com/v1",
             "env_var": "OPENAI_API_KEY",
@@ -97,7 +105,7 @@ class LLMEnvLoader:
             "endpoint_env_fallback": "GCP_OLLAMA_URL",
             "env_var": None,  # No API key needed for Ollama
             "default_model": "qwen2.5:3b",
-            "priority": 2,
+            "priority": 1,
             "capabilities": ["chat", "completions", "code-generation"],
         },
         "llamacpp_gcp": {
@@ -105,7 +113,7 @@ class LLMEnvLoader:
             "endpoint_env_fallback": "GCP_LLAMACPP_URL",
             "env_var": None,  # No API key needed for llama.cpp
             "default_model": "phi-3-mini-4k-instruct-q4",
-            "priority": 2,
+            "priority": 1,
             "capabilities": ["chat", "completions", "code-generation"],
         },
     }
@@ -121,7 +129,13 @@ class LLMEnvLoader:
             api_key = None
 
             # Get API key if required
-            if config.get("env_var"):
+            if config.get("env_vars"):
+                for env_name in config.get("env_vars", []):
+                    value = os.getenv(env_name or "")
+                    if value:
+                        api_key = value
+                        break
+            elif config.get("env_var"):
                 api_key = os.getenv(config["env_var"])
 
             # Get endpoint (may need environment variable for Azure or GCP)

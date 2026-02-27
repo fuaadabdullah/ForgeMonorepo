@@ -51,6 +51,14 @@ services:
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_API_KEY
+        sync: false
+      - key: ALIYUN_MODEL_SERVER_URL
+        sync: false
+      - key: ALIYUN_MODEL_SERVER_KEY
+        sync: false
       - key: TAVILY_API_KEY
         sync: false
       - key: OLLAMA_GCP_URL

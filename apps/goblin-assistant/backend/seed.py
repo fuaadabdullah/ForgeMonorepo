@@ -23,6 +23,14 @@ def _env(name: str, default: str = "") -> str:
 
 def _provider_seed_data() -> list[dict[str, Any]]:
     siliconeflow_api_key = _env("SILICONEFLOW_API_KEY") or _env("SILICONFLOW_API_KEY")
+    azure_api_key = (
+        _env("AZURE_API_KEY") or _env("AZURE_OPENAI_API_KEY") or _env("AZURE_OPENAI_KEY")
+    )
+    azure_base_url = _env("AZURE_OPENAI_ENDPOINT", "https://{resource}.openai.azure.com")
+    aliyun_api_key = _env("ALIYUN_MODEL_SERVER_KEY") or _env("ALIYUN_API_KEY")
+    aliyun_base_url = _env(
+        "ALIYUN_MODEL_SERVER_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    )
     providers: list[dict[str, Any]] = [
         {
             "name": "openai",
@@ -57,6 +65,25 @@ def _provider_seed_data() -> list[dict[str, Any]]:
             "api_key": _env("DEEPSEEK_API_KEY"),
             "base_url": "",
             "models": ["deepseek-chat", "deepseek-coder"],
+            "enabled": True,
+        },
+        {
+            "name": "azure_openai",
+            "api_key": azure_api_key,
+            "base_url": azure_base_url,
+            "models": ["gpt-4o", "gpt-4.1", "gpt-4-turbo", "gpt-3.5-turbo"],
+            "enabled": True,
+        },
+        {
+            "name": "aliyun",
+            "api_key": aliyun_api_key,
+            "base_url": aliyun_base_url,
+            "models": [
+                "qwen-plus",
+                "qwen-turbo",
+                "qwen-max",
+                "qwen2.5-coder-32b-instruct",
+            ],
             "enabled": True,
         },
         {

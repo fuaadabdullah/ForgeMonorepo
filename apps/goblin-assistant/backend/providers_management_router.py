@@ -80,11 +80,24 @@ def _resolve_provider_key(provider: Provider) -> str:
     if key:
         return key
     # As a last resort, fall back to env var expected by registry.
-    env_candidates = [
-        f"{provider.name.upper()}_API_KEY",
-        f"{provider.name.upper()}_KEY",
-    ]
+    provider_name = (provider.name or "").strip().lower().replace("-", "_")
+    env_candidates: list[str] = []
+    if provider_name in {"aliyun", "alibaba", "alibaba_cloud"}:
+        env_candidates.extend(
+            ["ALIYUN_MODEL_SERVER_KEY", "ALIYUN_API_KEY", "ALIYUN_KEY"]
+        )
+    if provider_name in {"azure_openai", "azure"}:
+        env_candidates.extend(
+            ["AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_KEY"]
+        )
+    base = provider_name.upper().replace("-", "_")
+    env_candidates.extend([f"{base}_API_KEY", f"{base}_KEY"])
+
+    seen: set[str] = set()
     for env_key in env_candidates:
+        if env_key in seen:
+            continue
+        seen.add(env_key)
         value = os.getenv(env_key, "").strip()
         if value:
             return value
@@ -92,10 +105,15 @@ def _resolve_provider_key(provider: Provider) -> str:
 
 
 def _adapter_for(name: str):
-    n = (name or "").strip().lower()
+    n = (name or "").strip().lower().replace("-", "_")
     mapping = {
         "ollama": OllamaAdapter,
         "openai": OpenAIAdapter,
+        "azure_openai": OpenAIAdapter,
+        "azure": OpenAIAdapter,
+        "aliyun": OpenAIAdapter,
+        "alibaba": OpenAIAdapter,
+        "alibaba_cloud": OpenAIAdapter,
         "anthropic": AnthropicAdapter,
         "grok": GrokAdapter,
         "xai": GrokAdapter,

@@ -19,8 +19,26 @@ logger = logging.getLogger(__name__)
 
 
 def _provider_env_key_candidates(provider_name: str) -> list[str]:
+    normalized = (provider_name or "").lower().replace("-", "_")
+    candidates: list[str] = []
+    if normalized in {"aliyun", "alibaba", "alibaba_cloud"}:
+        candidates.extend(
+            ["ALIYUN_MODEL_SERVER_KEY", "ALIYUN_API_KEY", "ALIYUN_KEY"]
+        )
+    if normalized in {"azure_openai", "azure"}:
+        candidates.extend(["AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_KEY"])
+
     base = (provider_name or "").upper().replace("-", "_")
-    return [f"{base}_API_KEY", f"{base}_KEY"]
+    candidates.extend([f"{base}_API_KEY", f"{base}_KEY"])
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for env_key in candidates:
+        if env_key in seen:
+            continue
+        seen.add(env_key)
+        unique.append(env_key)
+    return unique
 
 
 def _resolve_env_api_key(provider_name: str) -> str:

@@ -204,6 +204,77 @@ DEFAULT_PROVIDERS = [
         "is_active": True,
     },
     {
+        "name": "azure_openai",
+        "display_name": "Azure OpenAI",
+        "base_url": os.getenv(
+            "AZURE_OPENAI_ENDPOINT", "https://{resource}.openai.azure.com"
+        ),
+        "capabilities": ["chat", "code", "embeddings"],
+        "models": [
+            {
+                "id": "gpt-4o",
+                "name": "GPT-4o",
+                "capabilities": ["chat"],
+                "context_window": 128000,
+                "pricing": {"input": 0.005, "output": 0.015},
+            },
+            {
+                "id": "gpt-4.1",
+                "name": "GPT-4.1",
+                "capabilities": ["chat", "code"],
+                "context_window": 128000,
+                "pricing": {"input": 0.002, "output": 0.008},
+            },
+            {
+                "id": "gpt-4-turbo",
+                "name": "GPT-4 Turbo",
+                "capabilities": ["chat", "code"],
+                "context_window": 128000,
+                "pricing": {"input": 0.01, "output": 0.03},
+            },
+        ],
+        "rate_limits": {"requests_per_minute": 60, "tokens_per_minute": 60000},
+        "cost_per_token": 0.000006,  # Average cost per token
+        "priority": 16,
+        "is_active": True,
+    },
+    {
+        "name": "aliyun",
+        "display_name": "Aliyun",
+        "base_url": os.getenv(
+            "ALIYUN_MODEL_SERVER_URL",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        ),
+        "capabilities": ["chat", "code"],
+        "models": [
+            {
+                "id": "qwen-plus",
+                "name": "Qwen Plus",
+                "capabilities": ["chat"],
+                "context_window": 131072,
+                "pricing": {"input": 0.0008, "output": 0.002},
+            },
+            {
+                "id": "qwen-max",
+                "name": "Qwen Max",
+                "capabilities": ["chat"],
+                "context_window": 32768,
+                "pricing": {"input": 0.002, "output": 0.006},
+            },
+            {
+                "id": "qwen2.5-coder-32b-instruct",
+                "name": "Qwen 2.5 Coder 32B Instruct",
+                "capabilities": ["chat", "code"],
+                "context_window": 32768,
+                "pricing": {"input": 0.0008, "output": 0.002},
+            },
+        ],
+        "rate_limits": {"requests_per_minute": 60, "tokens_per_minute": 50000},
+        "cost_per_token": 0.0000014,  # Average cost per token
+        "priority": 16,
+        "is_active": True,
+    },
+    {
         "name": "ollama",
         "display_name": "Ollama (Local)",
         "base_url": "http://localhost:8002",  # Points to local proxy

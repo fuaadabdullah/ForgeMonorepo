@@ -30,6 +30,11 @@ class ProviderProbeWorker:
         self.probe_interval = probe_interval
         self.adapters = {
             "openai": OpenAIAdapter,
+            "aliyun": OpenAIAdapter,
+            "alibaba": OpenAIAdapter,
+            "alibaba_cloud": OpenAIAdapter,
+            "azure": OpenAIAdapter,
+            "azure_openai": OpenAIAdapter,
             "anthropic": AnthropicAdapter,
             "grok": GrokAdapter,
             "deepseek": DeepSeekAdapter,
@@ -140,7 +145,7 @@ class ProviderProbeWorker:
                 raise ValueError(f"No API key available for provider {provider.name}")
 
             # Get adapter
-            adapter_class = self.adapters.get(provider.name.lower())
+            adapter_class = self.adapters.get(provider.name.lower().replace("-", "_"))
             if not adapter_class:
                 raise ValueError(f"No adapter found for provider {provider.name}")
 

@@ -297,6 +297,8 @@ class ProviderRegistry:
             "vastai": "VASTAI_BASE_URL",
             "ollama": "OLLAMA_BASE_URL",
             "siliconeflow": "SILICONEFLOW_BASE_URL",
+            "aliyun": "ALIYUN_MODEL_SERVER_URL",
+            "azure_openai": "AZURE_OPENAI_ENDPOINT",
         }
 
         if name in env_url_mappings:

@@ -176,12 +176,18 @@ async def _probe_single_provider(provider: RoutingProvider) -> bool:
         logger.debug(f"Probing provider: {provider.name}")
 
         # Get provider adapter class
+        normalized_name = provider.name.lower().replace("-", "_")
         adapter_class = {
             "openai": OpenAIAdapter,
+            "aliyun": OpenAIAdapter,
+            "alibaba": OpenAIAdapter,
+            "alibaba_cloud": OpenAIAdapter,
+            "azure": OpenAIAdapter,
+            "azure_openai": OpenAIAdapter,
             "anthropic": AnthropicAdapter,
             "grok": GrokAdapter,
             "deepseek": DeepSeekAdapter,
-        }.get(provider.name.lower())
+        }.get(normalized_name)
 
         if not adapter_class:
             logger.warning(f"No adapter available for provider {provider.name}")

@@ -106,7 +106,9 @@ async def check_llm_provider_health(  # noqa: C901
 ) -> dict[str, object]:
     """Perform comprehensive health check for LLM provider."""
     try:
-        if provider_name.lower() == "ollama" and OllamaAdapter:
+        normalized_name = provider_name.lower().replace("-", "_")
+
+        if normalized_name == "ollama" and OllamaAdapter:
             # Test Ollama connectivity with detailed checks
             adapter = OllamaAdapter(api_key, base_url)
             models = await adapter.list_models()
@@ -152,7 +154,14 @@ async def check_llm_provider_health(  # noqa: C901
                 }
             return {"status": "unhealthy", "error": "No models available"}
 
-        if provider_name.lower() == "openai" and OpenAIAdapter:
+        if normalized_name in {
+            "openai",
+            "aliyun",
+            "alibaba",
+            "alibaba_cloud",
+            "azure",
+            "azure_openai",
+        } and OpenAIAdapter:
             # Test OpenAI connectivity with models list and basic inference
             adapter = OpenAIAdapter(api_key, base_url)
             models = await adapter.list_models()
@@ -201,7 +210,7 @@ async def check_llm_provider_health(  # noqa: C901
                     }
             return {"status": "unhealthy", "error": "No models available"}
 
-        if provider_name.lower() == "anthropic" and AnthropicAdapter:
+        if normalized_name == "anthropic" and AnthropicAdapter:
             # Test Anthropic connectivity
             adapter = AnthropicAdapter(api_key, base_url)
             try:
@@ -222,7 +231,7 @@ async def check_llm_provider_health(  # noqa: C901
             except Exception as e:
                 return {"status": "unhealthy", "error": str(e)}
 
-        if provider_name.lower() == "deepseek" and DeepSeekAdapter:
+        if normalized_name == "deepseek" and DeepSeekAdapter:
             adapter = DeepSeekAdapter(api_key, base_url)
             models = await adapter.list_models()
             test_model = "deepseek-chat"
@@ -257,7 +266,7 @@ async def check_llm_provider_health(  # noqa: C901
                     "error": str(e),
                 }
 
-        if provider_name.lower() == "gemini" and GeminiAdapter:
+        if normalized_name == "gemini" and GeminiAdapter:
             adapter = GeminiAdapter(api_key, base_url)
             try:
                 test = await adapter.test_completion(model="gemini-pro", max_tokens=10)
@@ -401,10 +410,41 @@ async def health_all():  # noqa: C901
     try:
         providers_config = [
             {
+                "name": "Aliyun",
+                "env_keys": ["ALIYUN_MODEL_SERVER_KEY", "ALIYUN_API_KEY", "ALIYUN_KEY"],
+                "base_url": os.getenv(
+                    "ALIYUN_MODEL_SERVER_URL",
+                    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+                ),
+                "is_primary": True,
+            },
+            {
+                "name": "Azure OpenAI",
+                "env_keys": ["AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_KEY"],
+                "base_url": os.getenv(
+                    "AZURE_OPENAI_ENDPOINT", "https://{resource}.openai.azure.com"
+                ),
+                "is_primary": True,
+            },
+            {
+                "name": "Ollama (GCP)",
+                "env_keys": ["LOCAL_LLM_API_KEY", "GCP_LLM_API_KEY"],
+                "base_url": os.getenv("OLLAMA_GCP_URL", os.getenv("OLLAMA_GCP_BASE_URL", "")),
+                "is_primary": True,
+            },
+            {
+                "name": "LlamaCpp (GCP)",
+                "env_keys": ["LOCAL_LLM_API_KEY", "GCP_LLM_API_KEY"],
+                "base_url": os.getenv(
+                    "LLAMACPP_GCP_URL", os.getenv("LLAMACPP_GCP_BASE_URL", "")
+                ),
+                "is_primary": True,
+            },
+            {
                 "name": "Ollama (Kamatera)",
                 "env_key": "KAMATERA_LLM_API_KEY",
                 "base_url": os.getenv("KAMATERA_LLM_URL", "http://66.55.77.147:8000"),
-                "is_primary": True,
+                "is_primary": False,
             },
             {
                 "name": "Ollama (Local)",
@@ -461,7 +501,16 @@ async def health_all():  # noqa: C901
                 providers.append({p["name"]: result})
                 continue
 
-            key = os.getenv(p["env_key"]) if p["env_key"] else None
+            key = None
+            env_keys = p.get("env_keys") or []
+            if isinstance(env_keys, list) and env_keys:
+                for env_name in env_keys:
+                    value = os.getenv(str(env_name))
+                    if value:
+                        key = value
+                        break
+            if not key:
+                key = os.getenv(p["env_key"]) if p.get("env_key") else None
             result = {
                 "enabled": bool(key),
                 "is_primary": p.get("is_primary", False),

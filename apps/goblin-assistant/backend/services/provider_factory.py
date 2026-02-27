@@ -141,7 +141,7 @@ def create_local_adapter(
 
 def create_cloud_adapter(provider_info: Dict[str, Any]):
     """Create adapter for cloud providers (OpenAI, Anthropic, etc.)."""
-    provider_name = provider_info["name"].lower()
+    provider_name = str(provider_info["name"]).lower().replace("-", "_")
     # Import adapters dynamically to avoid circular imports
     try:
         from ..providers import (
@@ -172,6 +172,40 @@ def create_cloud_adapter(provider_info: Dict[str, Any]):
         "grok": (GrokAdapter, ["GROK_API_KEY", "GROQ_API_KEY"], "https://api.x.ai/v1"),
         "groq": (OpenAIAdapter, ["GROQ_API_KEY"], "https://api.groq.com/openai/v1"),
         "deepseek": (DeepSeekAdapter, ["DEEPSEEK_API_KEY"], None),
+        "aliyun": (
+            OpenAIAdapter,
+            ["ALIYUN_MODEL_SERVER_KEY", "ALIYUN_API_KEY", "ALIYUN_KEY"],
+            (
+                os.getenv("ALIYUN_MODEL_SERVER_URL")
+                or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+            ),
+        ),
+        "alibaba": (
+            OpenAIAdapter,
+            ["ALIYUN_MODEL_SERVER_KEY", "ALIYUN_API_KEY", "ALIYUN_KEY"],
+            (
+                os.getenv("ALIYUN_MODEL_SERVER_URL")
+                or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+            ),
+        ),
+        "alibaba_cloud": (
+            OpenAIAdapter,
+            ["ALIYUN_MODEL_SERVER_KEY", "ALIYUN_API_KEY", "ALIYUN_KEY"],
+            (
+                os.getenv("ALIYUN_MODEL_SERVER_URL")
+                or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+            ),
+        ),
+        "azure_openai": (
+            OpenAIAdapter,
+            ["AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_KEY"],
+            (os.getenv("AZURE_OPENAI_ENDPOINT") or "https://{resource}.openai.azure.com"),
+        ),
+        "azure": (
+            OpenAIAdapter,
+            ["AZURE_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_OPENAI_KEY"],
+            (os.getenv("AZURE_OPENAI_ENDPOINT") or "https://{resource}.openai.azure.com"),
+        ),
         "gemini": (GeminiAdapter, ["GEMINI_API_KEY", "GOOGLE_API_KEY"], None),
         "moonshot": (MoonshotAdapter, ["MOONSHOT_API_KEY"], None),
         "elevenlabs": (ElevenLabsAdapter, ["ELEVENLABS_API_KEY"], None),
