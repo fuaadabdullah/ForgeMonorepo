@@ -12,6 +12,7 @@ from .database import get_db
 from .services.routing import RoutingService
 from .services.enhanced_routing import EnhancedRoutingService
 from .services.imports import get_routing_service as get_unified_routing_service
+from .providers.registry import get_provider_registry
 from .auth.policies import AuthScope
 from .auth_service import get_auth_service
 from .schemas.v1.routing import EnhancedRouteRequest, ProviderInfo, RouteRequest
@@ -93,21 +94,67 @@ def _normalize_models(models_value: Any) -> List[str]:
     return []
 
 
+def _normalize_provider_name(value: Any) -> str:
+    return str(value or "").strip().lower().replace("-", "_")
+
+
+def _discover_registry_providers() -> List[Dict[str, Any]]:
+    """Discover providers from the provider registry catalog as a compatibility fallback."""
+    try:
+        catalog = get_provider_registry().get_provider_catalog()
+    except Exception:
+        return []
+
+    providers: List[Dict[str, Any]] = []
+    for raw_provider_id, meta in (catalog or {}).items():
+        provider_name = _normalize_provider_name(raw_provider_id)
+        if not provider_name:
+            continue
+        raw_models = meta.get("models", [])
+        models = [
+            {"id": model_id}
+            for model_id in raw_models
+            if isinstance(model_id, str) and model_id
+        ]
+        capabilities = meta.get("capabilities", [])
+        if not isinstance(capabilities, list) or not capabilities:
+            capabilities = ["chat"]
+        providers.append(
+            {
+                "id": provider_name,
+                "name": provider_name,
+                "display_name": str(meta.get("display_name") or provider_name.replace("_", " ").title()),
+                "capabilities": list(capabilities),
+                "models": models,
+                "priority": int(meta.get("priority_tier", 1) or 1),
+                "is_active": bool(meta.get("is_active", True)),
+            }
+        )
+    return providers
+
+
 async def _discover_unified_providers(service: Any) -> List[Dict[str, Any]]:
-    providers = await service.discover_providers()
     normalized: List[Dict[str, Any]] = []
-    for provider in providers:
+    try:
+        providers = await service.discover_providers()
+    except Exception:
+        providers = []
+
+    for provider in providers or []:
         models = provider.get("models", [])
         if isinstance(models, list) and models and isinstance(models[0], str):
             models = [{"id": model_id} for model_id in models]
+        provider_name = _normalize_provider_name(provider.get("name", provider.get("id", "")))
+        if not provider_name:
+            continue
         normalized.append(
             {
-                "id": str(provider.get("id", provider.get("name", ""))),
-                "name": str(provider.get("name", "")),
+                "id": provider_name,
+                "name": provider_name,
                 "display_name": str(
                     provider.get(
                         "display_name",
-                        str(provider.get("name", "")).replace("_", " ").title(),
+                        provider_name.replace("_", " ").title(),
                     )
                 ),
                 "capabilities": list(provider.get("capabilities", []) or []),
@@ -116,7 +163,25 @@ async def _discover_unified_providers(service: Any) -> List[Dict[str, Any]]:
                 "is_active": bool(provider.get("is_active", False)),
             }
         )
-    return normalized
+
+    # Compat fallback: if unified discovery is sparse, merge in registry providers so
+    # /v1/routing/providers* aligns with /v1/providers/models in production.
+    merged: Dict[str, Dict[str, Any]] = {p["name"]: p for p in normalized if p.get("name")}
+    registry_providers = _discover_registry_providers()
+    for provider in registry_providers:
+        provider_name = provider.get("name")
+        if not provider_name:
+            continue
+        if provider_name in merged:
+            existing = merged[provider_name]
+            if not existing.get("models"):
+                existing["models"] = provider.get("models", [])
+            if not existing.get("capabilities"):
+                existing["capabilities"] = provider.get("capabilities", [])
+            continue
+        merged[provider_name] = provider
+
+    return sorted(merged.values(), key=lambda item: str(item.get("name", "")))
 
 
 @router.get("/providers/details", response_model=List[ProviderInfo])
