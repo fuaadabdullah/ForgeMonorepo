@@ -246,7 +246,14 @@ async def startup_event():
     if _db_initialized and SessionLocal is not None:
         db = SessionLocal()
         try:
-            seed_database(db)
+            try:
+                seed_database(db)
+            except Exception as exc:
+                logger.warning("Database seeding skipped due startup DB error: %s", exc)
+                try:
+                    db.rollback()
+                except Exception:
+                    pass
         finally:
             db.close()
     else:
