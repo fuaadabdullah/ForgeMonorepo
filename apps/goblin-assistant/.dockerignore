@@ -31,9 +31,14 @@ backend/.pytest_cache/
 backend/.mypy_cache/
 backend/htmlcov/
 backend/pytest-of-*/
+backend/.deps*/
+backend/.pip-cache/
+backend/.*
+backend/**/.*
 
 # macOS artifacts - MUST be first to ensure they're excluded everywhere
-**._*
+**/._*
+**/.__*
 ._*
 **/.DS_Store
 .DS_Store

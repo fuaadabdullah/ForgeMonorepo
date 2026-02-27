@@ -1,16 +1,22 @@
-name: Deploy Goblin Assistant (Fly)
+name: Fly Rollback Deploy (Deprecated)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'apps/goblin-assistant/**'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you running Fly rollback deploy?"
+        required: false
+        default: "rollback"
 
 jobs:
-  deploy-backend:
-    name: Build & Deploy backend to Fly.io
+  deploy-backend-fly-rollback:
+    name: Rollback Deploy backend to Fly.io (Deprecated)
     runs-on: ubuntu-latest
     steps:
+      - name: Deprecation notice
+        run: |
+          echo "Fly deployment is deprecated and retained for rollback only."
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -23,7 +29,7 @@ jobs:
         run: |
           curl -L https://fly.io/install.sh | sh
 
-      - name: Deploy to Fly (remote build)
+      - name: Deploy to Fly (rollback path)
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
